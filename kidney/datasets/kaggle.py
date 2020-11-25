@@ -1,4 +1,6 @@
 import glob
+import os
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import auto, Enum
@@ -81,14 +83,23 @@ class KaggleKidneyDatasetReader(DatasetReader):
 
     def fetch_one(self, key: str) -> Dict[str, Any]:
         meta = self.fetch_meta(key)
-        image = read_tiff(meta['tiff'])
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            image = read_tiff(meta['tiff'])
         mask = rle_decode(meta['mask'], image.shape[1:])
         return {'image': image, 'mask': mask}
 
 
+def get_reader():
+    try:
+        root = os.environ['DATASET_ROOT']
+    except KeyError:
+        raise RuntimeError('dataset root is not defined')
+    return KaggleKidneyDatasetReader(root)
+
+
 def main():
-    reader = KaggleKidneyDatasetReader('/mnt/fast/data/kidney')
-    print(reader.fetch_one('0486052bb').keys())
+    print(get_reader().fetch_one('0486052bb').keys())
 
 
 if __name__ == '__main__':
