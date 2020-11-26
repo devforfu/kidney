@@ -66,8 +66,6 @@ def overlay(
     image_overlay = masked.filled()
 
     if resize is not None:
-        # image = cv.resize(image.transpose(1, 2, 0), resize)
-        # image_overlay = cv.resize(image_overlay.transpose(1, 2, 0), resize)
         image = cv.resize(image, resize)
         image_overlay = cv.resize(image_overlay, resize)
 
