@@ -60,14 +60,16 @@ def overlay(
         image_combined: The combined image.
 
     """
-    color = np.asarray(color).reshape(3, 1, 1)
-    colored_mask = np.expand_dims(mask, 0).repeat(3, axis=0)
+    color = np.asarray(color).reshape(1, 1, 3)
+    colored_mask = np.expand_dims(mask, -1).repeat(3, axis=-1)
     masked = np.ma.MaskedArray(image, mask=colored_mask, fill_value=color)
     image_overlay = masked.filled()
 
     if resize is not None:
-        image = cv.resize(image.transpose(1, 2, 0), resize)
-        image_overlay = cv.resize(image_overlay.transpose(1, 2, 0), resize)
+        # image = cv.resize(image.transpose(1, 2, 0), resize)
+        # image_overlay = cv.resize(image_overlay.transpose(1, 2, 0), resize)
+        image = cv.resize(image, resize)
+        image_overlay = cv.resize(image_overlay, resize)
 
     image_combined = cv.addWeighted(image, 1 - alpha, image_overlay, alpha, 0)
 

@@ -83,11 +83,12 @@ class KaggleKidneyDatasetReader(DatasetReader):
 
     def fetch_one(self, key: str) -> Dict[str, Any]:
         meta = self.fetch_meta(key)
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            image = read_tiff(meta['tiff'])
-        mask = rle_decode(meta['mask'], image.shape[1:])
-        return {'image': image, 'mask': mask}
+        image = read_tiff(meta['tiff'])
+        sample = {'image': image}
+        mask = meta['mask']
+        if mask is not None:
+            sample['mask'] = rle_decode(mask, image.shape[:2])
+        return sample
 
 
 def get_reader():
