@@ -1,9 +1,9 @@
 """Reads TIFF images and cuts them into smaller pieces ready for model training."""
-
+import logging
 import os
 from argparse import ArgumentParser, Namespace
 from functools import partial
-from logging import getLogger
+from logging import getLogger, basicConfig
 from os.path import join
 from typing import Dict
 
@@ -13,7 +13,9 @@ from distributed import Client
 
 from kidney.datasets.kaggle import KaggleKidneyDatasetReader, SampleType, DatasetReader
 
+basicConfig()
 _logger = getLogger(__name__)
+_logger.setLevel(logging.DEBUG)
 
 
 def main(args: Namespace):
@@ -27,12 +29,14 @@ def main(args: Namespace):
     client = Client()
     try:
         bag = (
-            db.from_sequence(keys, npartitions=len(keys))
+            db.from_sequence(keys, npartitions=4)
             .map(partial(read_from_disk, reader=reader))
             .map(partial(generate_patches, size=args.patch_stride, stride=args.patch_size, output_dir=args.output_dir))
         )
-        bag.compute(scheduler='synchronous')
+        _logger.info('running dask pipeline')
+        bag.compute()
     finally:
+        _logger.info('closing dask client')
         client.close()
 
 
@@ -42,7 +46,7 @@ def read_from_disk(key: str, reader: DatasetReader) -> Dict:
     return sample
 
 
-def generate_patches(sample: Dict, size: int, stride: int, output_dir: str) -> Dict:
+def generate_patches(sample: Dict, size: int, stride: int, output_dir: str) -> None:
     os.makedirs(output_dir, exist_ok=True)
 
     image = sample['image']
@@ -54,10 +58,12 @@ def generate_patches(sample: Dict, size: int, stride: int, output_dir: str) -> D
             image.shape[0] != mask.shape[0] or
             image.shape[1] != mask.shape[1]
         ):
-            return {'key': key, 'error': 'image and mask shape do not match'}
+            _logger.error(f'key {key} failed: image and mask shapes are not equal')
+            return
 
         if mask.ndim != 2:
-            return {'key': key, 'error': 'mask is not binary'}
+            _logger.error(f'key {key} failed: mask should be binary')
+            return
 
     y_size, x_size = image.shape[:2]
 
@@ -66,21 +72,23 @@ def generate_patches(sample: Dict, size: int, stride: int, output_dir: str) -> D
         for dx in range(0, x_size, stride):
 
             path = join(output_dir, f'img.{dx}.{dy}.{size}.png')
-            image = PIL.Image.fromarray(image[dy:dy + size, dx:dx + size])
-            image.save(path, format='png')
+            _logger.info('saving image: %s', path)
+            patch_image = PIL.Image.fromarray(image[dy:dy + size, dx:dx + size])
+            patch_image.save(path, format='png')
 
             if mask is not None:
                 path = join(output_dir, f'seg.{dx}.{dy}.{size}.png')
-                image = PIL.Image.fromarray(mask[dy:dy + size, dx:dx + size])
-                image.save(path, format='png')
+                _logger.info('saving mask: %s', path)
+                patch_mask = PIL.Image.fromarray(mask[dy:dy + size, dx:dx + size])
+                patch_mask.save(path, format='png')
 
 
 def parse_args() -> Namespace:
     parser = ArgumentParser()
     parser.add_argument('--input-dir', required=True)
     parser.add_argument('--output-dir', required=True)
-    parser.add_argument('--patch-size', default=512)
-    parser.add_argument('--patch-stride', default=512)
+    parser.add_argument('--patch-size', type=int, default=512)
+    parser.add_argument('--patch-stride', type=int, default=512)
     parser.add_argument('--drop-last', action='store_true')
     parser.add_argument('--sample-type',
                         choices=[case.name for case in SampleType],
