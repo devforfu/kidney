@@ -71,13 +71,13 @@ def generate_patches(sample: Dict, size: int, stride: int, output_dir: str) -> N
     for dy in range(0, y_size, stride):
         for dx in range(0, x_size, stride):
 
-            path = join(output_dir, f'img.{dx}.{dy}.{size}.png')
+            path = join(output_dir, f'img.{key}.{dx}.{dy}.{size}.png')
             _logger.info('saving image: %s', path)
             patch_image = PIL.Image.fromarray(image[dy:dy + size, dx:dx + size])
             patch_image.save(path, format='png')
 
             if mask is not None:
-                path = join(output_dir, f'seg.{dx}.{dy}.{size}.png')
+                path = join(output_dir, f'seg.{key}.{dx}.{dy}.{size}.png')
                 _logger.info('saving mask: %s', path)
                 patch_mask = PIL.Image.fromarray(mask[dy:dy + size, dx:dx + size])
                 patch_mask.save(path, format='png')
