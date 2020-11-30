@@ -46,7 +46,13 @@ def read_from_disk(key: str, reader: DatasetReader) -> Dict:
     return sample
 
 
-def generate_patches(sample: Dict, size: int, stride: int, output_dir: str) -> None:
+def generate_patches(
+    sample: Dict,
+    size: int,
+    stride: int,
+    output_dir: str,
+    drop_last: bool = True
+) -> None:
     os.makedirs(output_dir, exist_ok=True)
 
     image = sample['image']
@@ -67,7 +73,12 @@ def generate_patches(sample: Dict, size: int, stride: int, output_dir: str) -> N
 
     y_size, x_size = image.shape[:2]
 
-    # todo: consider padding edge patches instead of ignoring them
+    if drop_last:
+        # otherwise, the last patches can be smaller than (size, size) shape;
+        # ignoring them for now but consider padding edge patches instead
+        y_size -= stride
+        x_size -= stride
+
     for dy in range(0, y_size, stride):
         for dx in range(0, x_size, stride):
 
