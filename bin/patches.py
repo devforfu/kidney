@@ -13,30 +13,34 @@ from distributed import Client
 
 from kidney.datasets.kaggle import KaggleKidneyDatasetReader, SampleType, DatasetReader
 
-basicConfig()
-_logger = getLogger(__name__)
-_logger.setLevel(logging.DEBUG)
-
 
 def main(args: Namespace):
-    _logger.info('reading samples from dir: %s', args.input_dir)
+    logger = init_logging()
+
+    logger.info('reading samples from dir: %s', args.input_dir)
     reader = KaggleKidneyDatasetReader(args.input_dir)
 
-    _logger.info('sample type: %s', args.sample_type)
+    logger.info('sample type: %s', args.sample_type)
     keys = reader.get_keys(args.sample_type)
-    _logger.info('retrieved keys: %s', ', '.join(keys))
+    logger.info('retrieved keys: %s', ', '.join(keys))
 
     client = Client()
     try:
+        client.run(init_logging)
         bag = (
             db.from_sequence(keys, npartitions=4)
             .map(partial(read_from_disk, reader=reader))
-            .map(partial(generate_patches, size=args.patch_stride, stride=args.patch_size, output_dir=args.output_dir))
+            .map(partial(
+                generate_patches,
+                size=args.patch_size,
+                stride=args.patch_stride,
+                output_dir=args.output_dir
+            ))
         )
-        _logger.info('running dask pipeline')
+        logger.info('running dask pipeline')
         bag.compute()
     finally:
-        _logger.info('closing dask client')
+        logger.info('closing dask client')
         client.close()
 
 
@@ -53,6 +57,8 @@ def generate_patches(
     output_dir: str,
     drop_last: bool = True
 ) -> None:
+    logger = getLogger(__name__)
+
     os.makedirs(output_dir, exist_ok=True)
 
     image = sample['image']
@@ -64,11 +70,11 @@ def generate_patches(
             image.shape[0] != mask.shape[0] or
             image.shape[1] != mask.shape[1]
         ):
-            _logger.error(f'key {key} failed: image and mask shapes are not equal')
+            logger.error(f'key {key} failed: image and mask shapes are not equal')
             return
 
         if mask.ndim != 2:
-            _logger.error(f'key {key} failed: mask should be binary')
+            logger.error(f'key {key} failed: mask should be binary')
             return
 
     y_size, x_size = image.shape[:2]
@@ -83,15 +89,22 @@ def generate_patches(
         for dx in range(0, x_size, stride):
 
             path = join(output_dir, f'img.{key}.{dx}.{dy}.{size}.png')
-            _logger.info('saving image: %s', path)
+            logger.info('saving image: %s', path)
             patch_image = PIL.Image.fromarray(image[dy:dy + size, dx:dx + size])
             patch_image.save(path, format='png')
 
             if mask is not None:
                 path = join(output_dir, f'seg.{key}.{dx}.{dy}.{size}.png')
-                _logger.info('saving mask: %s', path)
+                logger.info('saving mask: %s', path)
                 patch_mask = PIL.Image.fromarray(mask[dy:dy + size, dx:dx + size])
                 patch_mask.save(path, format='png')
+
+
+def init_logging():
+    basicConfig()
+    logger = getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    return logger
 
 
 def parse_args() -> Namespace:
