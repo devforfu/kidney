@@ -1,7 +1,8 @@
-from typing import Tuple
+from typing import Tuple, Optional, Dict
 
 import cv2 as cv
 import numpy as np
+import PIL.Image
 
 
 def detect_roi(
@@ -41,3 +42,52 @@ def detect_roi(
     ]]
 
     return x0, y0, x1, y1
+
+
+def overlay(
+    image: np.ndarray,
+    mask: np.ndarray,
+    color: Tuple[int, int, int] = (255, 0, 0),
+    alpha: float = 0.5,
+    resize: Tuple[int, int] = (1024, 1024)
+) -> np.ndarray:
+    """Combines image and its segmentation mask into a single image.
+
+    Params:
+        image: Training image.
+        mask: Segmentation mask.
+        color: Color for segmentation mask rendering.
+        alpha: Segmentation mask's transparency.
+        resize: If provided, both image and its mask are resized before blending them together.
+
+    Returns:
+        image_combined: The combined image.
+
+    """
+    color = np.asarray(color).reshape(1, 1, 3)
+    colored_mask = np.expand_dims(mask, -1).repeat(3, axis=-1)
+    masked = np.ma.MaskedArray(image, mask=colored_mask, fill_value=color)
+    image_overlay = masked.filled()
+
+    if resize is not None:
+        image = cv.resize(image, resize)
+        image_overlay = cv.resize(image_overlay, resize)
+
+    image_combined = cv.addWeighted(image, 1 - alpha, image_overlay, alpha, 0)
+
+    return image_combined
+
+
+def read_image_as_numpy(path: str) -> np.ndarray:
+    return np.asarray(PIL.Image.open(path))
+
+
+def read_masked_image(
+    image: str,
+    mask: Optional[str] = None,
+    **overlay_options: Dict
+) -> np.ndarray:
+    image = read_image_as_numpy(image)
+    if mask is not None:
+        mask = read_image_as_numpy(mask)
+    return overlay(image, mask, **overlay_options)
