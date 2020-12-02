@@ -2,6 +2,7 @@ from typing import Tuple, Optional, Dict
 
 import cv2 as cv
 import numpy as np
+import pandas as pd
 import PIL.Image
 
 
@@ -91,3 +92,16 @@ def read_masked_image(
     if mask is not None:
         mask = read_image_as_numpy(mask)
     return overlay(image, mask, **overlay_options)
+
+
+def pixel_histogram(image: np.ndarray, bin_size: int = 4) -> pd.Series:
+    return (
+        pd.cut(
+            image.ravel(),
+            bins=range(0, 256 + bin_size, bin_size),
+            labels=range(0, 256, bin_size),
+            right=False
+        )
+        .value_counts()
+        .rename('count')
+    )

@@ -1,9 +1,8 @@
 """Reads TIFF images and cuts them into smaller pieces ready for model training."""
-import logging
 import os
 from argparse import ArgumentParser, Namespace
 from functools import partial
-from logging import getLogger, basicConfig
+from logging import getLogger
 from os.path import join
 from typing import Dict
 
@@ -12,6 +11,7 @@ import dask.bag as db
 from distributed import Client
 
 from kidney.datasets.kaggle import KaggleKidneyDatasetReader, SampleType, DatasetReader
+from kidney.log import init_logging
 
 
 def main(args: Namespace):
@@ -98,13 +98,6 @@ def generate_patches(
                 logger.info('saving mask: %s', path)
                 patch_mask = PIL.Image.fromarray(mask[dy:dy + size, dx:dx + size])
                 patch_mask.save(path, format='png')
-
-
-def init_logging():
-    basicConfig()
-    logger = getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    return logger
 
 
 def parse_args() -> Namespace:
