@@ -1,9 +1,8 @@
 import logging
-from logging import basicConfig, getLogger
+from logging import getLogger
 
 
-def init_logging() -> logging.Logger:
-    basicConfig()
-    logger = getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
+def get_logger(name: str, level: int = logging.DEBUG):
+    logger = getLogger(name)
+    logger.setLevel(level)
     return logger

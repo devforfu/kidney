@@ -2,7 +2,7 @@
 import os
 from argparse import ArgumentParser, Namespace
 from functools import partial
-from logging import getLogger
+from logging import getLogger, basicConfig
 from os.path import join
 from typing import Dict
 
@@ -11,12 +11,14 @@ import dask.bag as db
 from distributed import Client
 
 from kidney.datasets.kaggle import KaggleKidneyDatasetReader, SampleType, DatasetReader
-from kidney.log import init_logging
+from kidney.log import get_logger
+
+
+basicConfig()
 
 
 def main(args: Namespace):
-    logger = init_logging()
-
+    logger = get_logger(__name__)
     logger.info('reading samples from dir: %s', args.input_dir)
     reader = KaggleKidneyDatasetReader(args.input_dir)
 
@@ -26,7 +28,7 @@ def main(args: Namespace):
 
     client = Client()
     try:
-        client.run(init_logging)
+        client.run(lambda: basicConfig())
         bag = (
             db.from_sequence(keys, npartitions=4)
             .map(partial(read_from_disk, reader=reader))
@@ -57,7 +59,7 @@ def generate_patches(
     output_dir: str,
     drop_last: bool = True
 ) -> None:
-    logger = getLogger(__name__)
+    logger = get_logger(__name__)
 
     os.makedirs(output_dir, exist_ok=True)
 
