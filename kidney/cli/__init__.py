@@ -1,6 +1,7 @@
+import inspect
 from argparse import ArgumentParser
 from functools import reduce, wraps
-from typing import Callable, Optional, List
+from typing import Callable, Optional, List, Dict
 
 import pytorch_lightning as pl
 
@@ -38,7 +39,7 @@ def default_parser(script_filename: str) -> ArgumentParser:
     ])
 
 
-def extend_parser(func: Callable):
+def extend_parser(func: Callable) -> Callable:
     @wraps(func)
     def wrapper(parser: ArgumentParser) -> ArgumentParser:
         return func(ArgumentParser(parents=[parser], add_help=False))

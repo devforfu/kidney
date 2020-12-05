@@ -30,11 +30,11 @@ def basic_parser(script_filename: str = None) -> ArgumentParser:
 
     parser = ArgumentParser()
     parser.add_argument(
-        "--dataset_path",
+        "--dataset",
         required=True,
         help=
-        "A string or filesystem path defining the dataset; "
-        "it's exact usage is up to the training code."
+        "A string, filesystem path, or any other identifier defining "
+        "the dataset; it's exact usage is up to the training code."
     )
     parser.add_argument(
         "--tags",

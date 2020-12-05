@@ -27,7 +27,7 @@ def add_early_stopping_args(parser: ArgumentParser) -> ArgumentParser:
         "check if metric increases otherwise."
     )
     parser.add_argument(
-        "--early_stopping_top_k",
+        "--early_stopping_patience",
         default=1,
         type=int,
         help="Number of epochs to wait for metrics improvement until stopping."
