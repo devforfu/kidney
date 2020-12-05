@@ -1,7 +1,7 @@
 import argparse
 import json
 from functools import partial
-from logging import getLogger, basicConfig
+from logging import basicConfig
 from multiprocessing import cpu_count
 from typing import Dict, Any
 
@@ -12,12 +12,11 @@ from kidney.datasets.segmentation import read_masked_images
 from kidney.log import get_logger
 from kidney.utils.image import read_image_as_numpy, pixel_histogram
 
-
 basicConfig()
 
 
 def main(args: argparse.Namespace):
-    logger = getLogger(__name__)
+    logger = get_logger(__name__)
     logger.info('building images meta-info from folder: %s', args.input_dir)
     images = read_masked_images(args.input_dir)
     logger.info('the number of discovered samples: %d', len(images))
