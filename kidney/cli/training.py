@@ -9,19 +9,25 @@ def add_training_loop_args(parser: ArgumentParser) -> ArgumentParser:
     """Extends arguments parser with training parameters."""
 
     parser.add_argument(
-        "--batch_size",
+        "-e", "--epochs",
+        default=1,
+        type=int,
+        help="Number of training epochs."
+    )
+    parser.add_argument(
+        "-bs", "--batch_size",
         default=4,
         type=int,
         help="Data loader batch size."
     )
     parser.add_argument(
-        "--learning_rate",
+        "-lr", "--learning_rate",
         default=1e-4,
         type=float,
         help="Learning rate."
     )
     parser.add_argument(
-        "--weight_decay",
+        "-wd", "--weight_decay",
         default=0.0,
         type=float,
         help=

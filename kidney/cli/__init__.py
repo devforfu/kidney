@@ -27,11 +27,13 @@ def default_parser(script_filename: str) -> ArgumentParser:
 
     """
     from kidney.cli.basic import basic_parser
-    from kidney.cli import training
+    from kidney.cli import training, callbacks
     return create_parser(script_filename, basic_parser, extensions=[
         training.add_training_loop_args,
         training.add_optimizer_args,
         training.add_scheduler_args,
+        callbacks.add_early_stopping_args,
+        callbacks.add_checkpointing_args,
         pl.Trainer.add_argparse_args,
     ])
 
