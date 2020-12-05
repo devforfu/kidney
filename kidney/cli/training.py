@@ -1,12 +1,13 @@
+import json
 from argparse import ArgumentParser
 
-import json
+from kidney.cli import extend_parser
 
 
-def add_training_args(parser: ArgumentParser) -> ArgumentParser:
+@extend_parser
+def add_training_loop_args(parser: ArgumentParser) -> ArgumentParser:
     """Extends arguments parser with training parameters."""
 
-    parser = ArgumentParser(parents=[parser], add_help=False)
     parser.add_argument(
         "--batch_size",
         default=4,
@@ -18,6 +19,15 @@ def add_training_args(parser: ArgumentParser) -> ArgumentParser:
         default=1e-4,
         type=float,
         help="Learning rate."
+    )
+    parser.add_argument(
+        "--weight_decay",
+        default=0.0,
+        type=float,
+        help=
+        "Weight decay; the option is ignored in case if a given "
+        "optimizer doesn't support weigh decay or ignores this "
+        "option."
     )
     parser.add_argument(
         "--logging_steps",
@@ -36,30 +46,37 @@ def add_training_args(parser: ArgumentParser) -> ArgumentParser:
     return parser
 
 
+@extend_parser
 def add_optimizer_args(parser: ArgumentParser) -> ArgumentParser:
     """Extends arguments parser with optimizer-specific parameters."""
 
-    parser = ArgumentParser(parents=[parser], add_help=False)
     parser.add_argument(
         "--optimizer_name",
         default="adam",
-        help="The name of an optimizer."
+        help="Optimizer name."
     )
     parser.add_argument(
         "--optimizer_config",
         default="{}",
         type=json.loads,
+        help="Optimizer-specific parameters as JSON string."
     )
     return parser
 
 
-# def add_scheduler_
+@extend_parser
+def add_scheduler_args(parser: ArgumentParser) -> ArgumentParser:
+    """Extends arguments parser with scheduler-specific parameters."""
 
-
-def main():
-    args = add_optimizer_args(ArgumentParser()).parse_args()
-    print(args.optimizer_config)
-
-
-if __name__ == '__main__':
-    main()
+    parser.add_argument(
+        "--schedule_name",
+        default=None,
+        help="Scheduler name"
+    )
+    parser.add_argument(
+        "--scheduler_interval",
+        default="epoch",
+        choices=["epoch", "step"],
+        help="How often to call scheduler: per epoch or per step (training batch)."
+    )
+    return parser
