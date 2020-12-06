@@ -17,10 +17,10 @@ class BaseExperiment(pl.LightningModule):  # noqa
         self.logging_loss = 0.0
         self.model_outputs = []
         self.true_targets = []
-        self.model: Optional[nn.Module] = None
+        self.model = self.create_model()
+        self.loss_fn: Optional[Callable] = None
         self.scheduler: Optional[_LRScheduler] = None
 
-    @property
     def model_parameters(self) -> List:
         return self.model.parameters()  # noqa
 
@@ -33,15 +33,21 @@ class BaseExperiment(pl.LightningModule):  # noqa
         )
 
     def configure_optimizers(self) -> Dict:
-        opt = create_optimizer(self.model_parameters, self.hparams)
+        opt = create_optimizer(self.model_parameters(), self.hparams)
         self.scheduler = create_scheduler(opt, self)
-        return {
-            "optimizer": opt,
-            "lr_scheduler": {
-                "scheduler": self.scheduler,
-                "interval": self.hparams.scheduler_interval
+        self.loss_fn = create_loss(self.hparams)
+        return (
+            {"optimizer": opt}
+            if self.scheduler is None
+            else
+            {
+                "optimizer": opt,
+                "lr_scheduler": {
+                    "scheduler": self.scheduler,
+                    "interval": self.hparams.scheduler_interval
+                }
             }
-        }
+        )
 
     def forward(self, batch: Dict) -> torch.Tensor:
         return self.model(batch)
@@ -67,10 +73,6 @@ class BaseExperiment(pl.LightningModule):  # noqa
         raise NotImplementedError("model builder is not defined")
 
     @property
-    def loss_fn(self) -> Callable:
-        raise NotImplementedError("loss function is not defined")
-
-    @property
     def metrics(self) -> List[Callable]:
         return []
 
@@ -79,37 +81,47 @@ def create_optimizer(optimizer_params: List, hparams: AttributeDict) -> Optimize
     name = hparams.optimizer_name
     name_normalized = name.lower().strip()
     config = hparams.optimizer_config
-    if name_normalized == 'adam':
+    if name_normalized == "adam":
         opt = torch.optim.AdamW(
             params=optimizer_params,
             lr=hparams.learning_rate,
             betas=config.get("betas", [0.9, 0.999]),
             weight_decay=hparams.weight_decay)
     else:
-        raise ValueError(f'unknown optimizer: {name}')
+        raise ValueError(f"unknown optimizer: {name}")
     return opt
 
 
 def create_scheduler(optimizer: Optimizer, experiment: BaseExperiment) -> _LRScheduler:
     hparams = experiment.hparams
     name = hparams.scheduler_name
+    if name is None:
+        return None
     name_normalized = name.lower().strip()
     config = hparams.scheduler_config
-    if name_normalized == 'expo':
-        scheduler = ExponentialLR(optimizer, gamma=config.get('scheduler_gamma', 0.8))
-    elif name_normalized == 'cosine':
-        if hparams.scheduler_interval == 'epoch':
+    if name_normalized == "expo":
+        scheduler = ExponentialLR(optimizer, gamma=config.get("scheduler_gamma", 0.8))
+    elif name_normalized == "cosine":
+        if hparams.scheduler_interval == "epoch":
             t_max = hparams.epochs
-        elif hparams.scheduler_interval == 'step':
+        elif hparams.scheduler_interval == "step":
             dl = experiment.train_dataloader()
             t_max = len(dl) * hparams.epochs
         else:
-            raise ValueError(f'unknown scheduler interval: {hparams.scheduler_interval}')
+            raise ValueError(f"unknown scheduler interval: {hparams.scheduler_interval}")
         scheduler = CosineAnnealingLR(
             optimizer=optimizer,
             T_max=t_max,
             eta_min=config.get("eta_min", 1e-6)
         )
     else:
-        raise ValueError(f'unknown optimizer: {name}')
+        raise ValueError(f"unknown optimizer: {name}")
     return scheduler
+
+
+def create_loss(hparams: AttributeDict) -> Callable:
+    name_normalized = hparams.loss_name
+    if name_normalized == "dice_sigmoid":
+        from monai.losses import DiceLoss
+        return DiceLoss(sigmoid=True)
+    raise ValueError(f"unknown loss function: {hparams.loss_name}")

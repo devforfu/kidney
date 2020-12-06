@@ -25,6 +25,7 @@ def default_args() -> List[Callable]:
         training.add_training_loop_args,
         training.add_optimizer_args,
         training.add_scheduler_args,
+        training.add_loss_args,
         callbacks.add_early_stopping_args,
         callbacks.add_checkpointing_args,
         log.add_logging_args,
@@ -60,6 +61,10 @@ def entry_point(base_parser_factory: Callable, extensions: Optional[List[Callabl
         if extensions is not None:
             parser = reduce(lambda previous, extend: extend(previous), extensions, parser)
 
-        func(as_attribute_dict(parser.parse_args()))
+        @wraps(func)
+        def wrapped():
+            func(as_attribute_dict(parser.parse_args()))
+
+        return wrapped
 
     return wrapper

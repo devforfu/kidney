@@ -69,7 +69,7 @@ def add_scheduler_args(parser: ArgumentParser) -> ArgumentParser:
     """Extends arguments parser with scheduler-specific parameters."""
 
     parser.add_argument(
-        "--schedule_name",
+        "--scheduler_name",
         default=None,
         help="Scheduler name"
     )
@@ -84,5 +84,17 @@ def add_scheduler_args(parser: ArgumentParser) -> ArgumentParser:
         default="{}",
         type=json.loads,
         help="Scheduler-specific parameters as JSON string."
+    )
+    return parser
+
+
+@extend_parser
+def add_loss_args(parser: ArgumentParser) -> ArgumentParser:
+    """Extends arguments parser with loss function parameters."""
+
+    parser.add_argument(
+        "--loss_name",
+        required=True,
+        help="Loss function."
     )
     return parser

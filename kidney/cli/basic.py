@@ -74,8 +74,10 @@ def basic_parser(script_filename: str = None) -> ArgumentParser:
     parser.add_argument(
         "--num_workers",
         default=cpu_count(),
-        help="A number of workers for multi-processing parts of the training "
-             "pipeline (i.e., data loaders)."
+        type=int,
+        help=
+        "A number of workers for multi-processing parts of the training "
+        "pipeline (i.e., data loaders)."
     )
     parser.add_argument(
         "--timestamp",
