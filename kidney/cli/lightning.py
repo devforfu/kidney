@@ -1,7 +1,5 @@
 import os
 from datetime import datetime
-from functools import wraps
-from typing import List, Callable
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
@@ -9,27 +7,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.utilities import AttributeDict
 from zeus.utils import TimestampFormat
 
-from kidney.cli import default_parser
-from kidney.parameters import get_relevant_params, as_attribute_dict
-
-
-def requires(attributes: List[str]):
-
-    def wrapped(func: Callable):
-
-        @wraps(func)
-        def wrapper(params: AttributeDict, **kwargs):
-            for attr in attributes:
-                if attr not in params:
-                    raise ValueError(
-                        f"required parameter is missing: {attr}; make sure that your "
-                        f"dictionary includes all parameters required by a function."
-                    )
-            return func(params, **kwargs)
-
-        return wrapper
-
-    return wrapped
+from kidney.parameters import get_relevant_params, as_attribute_dict, requires
 
 
 @requires([

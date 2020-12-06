@@ -1,7 +1,8 @@
 import inspect
 from argparse import Namespace
+from functools import wraps
 from types import SimpleNamespace
-from typing import Callable, Dict, Union
+from typing import Callable, Dict, Union, List
 
 from pytorch_lightning.utilities import AttributeDict
 
@@ -53,3 +54,22 @@ def as_attribute_dict(
     else:
         raise ValueError(f"parameters type unknown: {type(params)}")
     return dictionary
+
+
+def requires(attributes: List[str]):
+
+    def wrapped(func: Callable):
+
+        @wraps(func)
+        def wrapper(params: AttributeDict, **kwargs):
+            for attr in attributes:
+                if attr not in params:
+                    raise ValueError(
+                        f"required parameter is missing: {attr}; make sure that your "
+                        f"dictionary includes all parameters required by a function."
+                    )
+            return func(params, **kwargs)
+
+        return wrapper
+
+    return wrapped
