@@ -79,4 +79,10 @@ def add_scheduler_args(parser: ArgumentParser) -> ArgumentParser:
         choices=["epoch", "step"],
         help="How often to call scheduler: per epoch or per step (training batch)."
     )
+    parser.add_argument(
+        "--scheduler_config",
+        default="{}",
+        type=json.loads,
+        help="Scheduler-specific parameters as JSON string."
+    )
     return parser
