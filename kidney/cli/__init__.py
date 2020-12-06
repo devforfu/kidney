@@ -1,7 +1,6 @@
-import inspect
 from argparse import ArgumentParser
 from functools import reduce, wraps
-from typing import Callable, Optional, List, Dict
+from typing import Callable, Optional, List
 
 import pytorch_lightning as pl
 
@@ -11,10 +10,9 @@ def create_parser(
     basic_parser: Callable,
     extensions: Optional[List[Callable]] = None,
 ) -> ArgumentParser:
-    if extensions is None:
-        parser = basic_parser(script_filename)
-    else:
-        parser = reduce(lambda extend, previous: extend(previous), extensions)
+    parser = basic_parser(script_filename)
+    if extensions is not None:
+        parser = reduce(lambda previous, extend: extend(previous), extensions, parser)
     return parser
 
 
@@ -28,13 +26,14 @@ def default_parser(script_filename: str) -> ArgumentParser:
 
     """
     from kidney.cli.basic import basic_parser
-    from kidney.cli import training, callbacks
+    from kidney.cli import training, callbacks, log
     return create_parser(script_filename, basic_parser, extensions=[
         training.add_training_loop_args,
         training.add_optimizer_args,
         training.add_scheduler_args,
         callbacks.add_early_stopping_args,
         callbacks.add_checkpointing_args,
+        log.add_logging_args,
         pl.Trainer.add_argparse_args,
     ])
 

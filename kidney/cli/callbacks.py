@@ -58,4 +58,13 @@ def add_checkpointing_args(parser: ArgumentParser) -> ArgumentParser:
         default=1,
         help="Number of best checkpoints to save."
     )
+    parser.add_argument(
+        "--checkpoints_path",
+        type=str,
+        default=None,
+        help=
+        "Filepath where a checkpoint is saved (can include formatting to "
+        "save each epoch into a new file); if not provided, should be "
+        "derived from other experiment's options."
+    )
     return parser

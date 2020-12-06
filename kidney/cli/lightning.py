@@ -9,6 +9,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.utilities import AttributeDict
 from zeus.utils import TimestampFormat
 
+from kidney.cli import default_parser
 from kidney.parameters import get_relevant_params, as_attribute_dict
 
 
@@ -34,10 +35,8 @@ def requires(attributes: List[str]):
 @requires([
     "experiment_dir",
     "experiment_name",
-    "timestamp",
     "run_name",
     "dataset",
-    "tags",
     "early_stopping_enabled",
     "early_stopping_metric",
     "early_stopping_mode",
@@ -46,11 +45,13 @@ def requires(attributes: List[str]):
     "checkpoints_metric",
     "checkpoints_mode",
     "checkpoints_top_k",
+    "wandb_logging_enabled",
+    "timestamp",
+    "tags",
+    "project_name"
 ])
 def make_trainer_init_params(params: AttributeDict) -> AttributeDict:
     """Creates a dictionary of parameters to initialize PyTorch Lightning trainer."""
-
-    params = as_attribute_dict(params)
 
     root = os.path.join(params.experiment_dir, params.experiment_name)
 
@@ -72,7 +73,7 @@ def make_trainer_init_params(params: AttributeDict) -> AttributeDict:
             tags=params.tags,
             project=params.project_name
         )
-        if params.wandb_logger_enabled
+        if params.wandb_logging_enabled
         else None
     )
 
@@ -84,11 +85,29 @@ def make_trainer_init_params(params: AttributeDict) -> AttributeDict:
         )
 
     if params.checkpoints_enabled:
+        filepath = params.get('checkpoints_path')
+        if filepath is None:
+            filepath = '%s/%s/checkpoints/%s/{epoch:d}_{%s:.4f}' % (
+                params.experiment_dir,
+                params.experiment_name,
+                params.timestamp,
+                params.checkpoints_metric
+            )
         config["checkpoints_callback"] = ModelCheckpoint(
-
+            filepath=filepath,
+            monitor=params.checkpoints_metric,
+            mode=params.checkpoints_mode,
+            save_top_k=params.checkpoints_top_k
         )
 
-    return AttributeDict({})  # todo: finalize the implementation
+    defaults = get_trainer_specific_args(params)
+
+    final_config = AttributeDict(defaults.copy())
+    final_config.update(config)  # override defaults with given params
+    if 'gpus' in final_config and isinstance(final_config['gpus'], int):
+        final_config['gpus'] = [final_config['gpus']]
+
+    return final_config
 
 
 def get_trainer_specific_args(params: AttributeDict) -> AttributeDict:

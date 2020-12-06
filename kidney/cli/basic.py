@@ -1,8 +1,10 @@
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser
 from multiprocessing import cpu_count
 from pathlib import Path
 
 from zeus.utils import home, TimestampFormat
+
+from kidney.parameters import PROJECT_NAME
 
 
 def basic_parser(script_filename: str = None) -> ArgumentParser:
@@ -35,6 +37,11 @@ def basic_parser(script_filename: str = None) -> ArgumentParser:
         help=
         "A string, filesystem path, or any other identifier defining "
         "the dataset; it's exact usage is up to the training code."
+    )
+    parser.add_argument(
+        "--project_name",
+        default=PROJECT_NAME,
+        help="Project name."
     )
     parser.add_argument(
         "--tags",
@@ -81,3 +88,4 @@ def basic_parser(script_filename: str = None) -> ArgumentParser:
         type=int,
         help="Random generator seed."
     )
+    return parser

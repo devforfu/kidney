@@ -36,12 +36,6 @@ def add_training_loop_args(parser: ArgumentParser) -> ArgumentParser:
         "option."
     )
     parser.add_argument(
-        "--logging_steps",
-        default=1,
-        type=int,
-        help="Logging frequency."
-    )
-    parser.add_argument(
         "--fold_no",
         default=0,
         type=int,
