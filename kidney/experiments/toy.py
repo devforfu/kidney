@@ -1,7 +1,7 @@
 """A toy experiment using randomly generated images and MONAI models."""
 import os
 from os.path import join
-from typing import Tuple
+from typing import Tuple, Dict
 
 import PIL.Image
 import numpy as np
@@ -17,7 +17,7 @@ from monai.transforms import (
     RandRotate90d,
     ToTensord,
     Activations,
-    AsDiscrete
+    AsDiscrete, torch
 )
 from pytorch_lightning.utilities import AttributeDict
 from torch.utils.data import DataLoader
@@ -145,8 +145,14 @@ def create_data_loaders(files: Tuple, transformers: Tuple, num_workers: int):
 class ToyExperiment(BaseExperiment):
 
     def create_model(self) -> nn.Module:
+        # https://github.com/devforfu/birds/blob/95cc5fbce21dfd4a971753cacb38f05c9ed438d3/birds/experiments/common.py#L146
         # https://github.com/Project-MONAI/tutorials/blob/master/2d_segmentation/torch/unet_training_dict.py
         return create_unet_model(self.hparams)
+
+    def forward(self, batch: Dict) -> Dict:
+        predicted_mask = self.model(batch["img"])
+        loss = self.loss_fn(predicted_mask, batch["seg"])
+        return {"loss": loss, "outputs": predicted_mask}
 
 
 if __name__ == '__main__':

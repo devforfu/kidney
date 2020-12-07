@@ -18,6 +18,7 @@ class BaseExperiment(pl.LightningModule):  # noqa
         self.model_outputs = []
         self.true_targets = []
         self.model = self.create_model()
+        self.metrics: Optional[List[Callable]] = None
         self.loss_fn: Optional[Callable] = None
         self.scheduler: Optional[_LRScheduler] = None
 
@@ -34,8 +35,9 @@ class BaseExperiment(pl.LightningModule):  # noqa
 
     def configure_optimizers(self) -> Dict:
         opt = create_optimizer(self.model_parameters(), self.hparams)
-        self.scheduler = create_scheduler(opt, self)
+        self.metrics = create_metrics(self.hparams)
         self.loss_fn = create_loss(self.hparams)
+        self.scheduler = create_scheduler(opt, self)
         return (
             {"optimizer": opt}
             if self.scheduler is None
@@ -49,13 +51,23 @@ class BaseExperiment(pl.LightningModule):  # noqa
             }
         )
 
-    def forward(self, batch: Dict) -> torch.Tensor:
-        return self.model(batch)
-
     def training_step(self, batch: Dict, batch_no: int) -> Dict:
         outputs = self(batch)
-        loss = self.loss_fn(outputs, batch["targets"])
+        loss = outputs["loss"]
         self.training_loss += loss.item()
+        self._log_optimization_metrics()
+        step_metrics = self._log_performance_metrics(outputs, batch)
+        return {"loss": loss, "step_metrics": step_metrics}
+
+    def create_model(self) -> nn.Module:
+        raise NotImplementedError("model's builder is not defined")
+
+    def forward(self, batch: Dict) -> Dict:
+        raise NotImplementedError("model's forward method is not defined")
+
+    def _log_optimization_metrics(self):
+        if self.logger is None:
+            return
         logging_steps = self.hparams.logging_steps
         if self.global_step % logging_steps == 0:
             self.logger.experiment.log({
@@ -63,18 +75,12 @@ class BaseExperiment(pl.LightningModule):  # noqa
                 "loss": (self.training_loss - self.logging_loss) / logging_steps
             })
             self.logging_loss = self.training_loss
-        step_metrics = [metric(outputs, batch) for metric in self.metrics]
-        return {"loss": loss, "step_metrics": step_metrics}
 
-    def validation_epoch_end(self, outputs: List[Any]) -> Dict:
-        return {}
-
-    def create_model(self) -> nn.Module:
-        raise NotImplementedError("model builder is not defined")
-
-    @property
-    def metrics(self) -> List[Callable]:
-        return []
+    def _log_performance_metrics(self, outputs: Dict, batch: Dict):
+        step_metrics = {
+            metric.__name__: metric(outputs, batch)
+            for metric in self.metrics}
+        return step_metrics
 
 
 def create_optimizer(optimizer_params: List, hparams: AttributeDict) -> Optimizer:
@@ -125,3 +131,7 @@ def create_loss(hparams: AttributeDict) -> Callable:
         from monai.losses import DiceLoss
         return DiceLoss(sigmoid=True)
     raise ValueError(f"unknown loss function: {hparams.loss_name}")
+
+
+def create_metrics(hparams: AttributeDict) -> List[Callable]:
+    return []
