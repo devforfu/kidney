@@ -1,7 +1,7 @@
 import json
 from argparse import ArgumentParser
 
-from kidney.cli import extend_parser
+from kidney.cli import extend_parser, comma_separated_list_of_strings
 
 
 @extend_parser
@@ -96,5 +96,18 @@ def add_loss_args(parser: ArgumentParser) -> ArgumentParser:
         "--loss_name",
         required=True,
         help="Loss function."
+    )
+    return parser
+
+
+@extend_parser
+def add_metrics_args(parser: ArgumentParser) -> ArgumentParser:
+    """Extends arguments parser with metric functions parameters."""
+
+    parser.add_argument(
+        "--metrics",
+        type=comma_separated_list_of_strings,
+        default=None,
+        help="A list of comma-separated metric names."
     )
     return parser

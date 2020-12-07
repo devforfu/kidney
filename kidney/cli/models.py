@@ -1,7 +1,6 @@
 from argparse import ArgumentParser
-from typing import List
 
-from kidney.cli import extend_parser
+from kidney.cli import extend_parser, comma_separated_list_of_integers
 
 
 @extend_parser
@@ -19,7 +18,3 @@ def add_unet_args(parser: ArgumentParser) -> ArgumentParser:
     parser.add_argument("--unet_kernel_size", type=int, default=3)
     parser.add_argument("--unet_up_kernel_size", type=int, default=3)
     return parser
-
-
-def comma_separated_list_of_integers(value: str) -> List[int]:
-    return list(map(int, value.split(',')))

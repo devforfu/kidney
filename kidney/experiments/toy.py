@@ -17,7 +17,7 @@ from monai.transforms import (
     RandRotate90d,
     ToTensord,
     Activations,
-    AsDiscrete, torch
+    AsDiscrete
 )
 from pytorch_lightning.utilities import AttributeDict
 from torch.utils.data import DataLoader

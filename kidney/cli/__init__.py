@@ -3,7 +3,6 @@ from functools import reduce, wraps
 from typing import Callable, Optional, List
 
 import pytorch_lightning as pl
-from pytorch_lightning.utilities import AttributeDict
 
 from kidney.parameters import as_attribute_dict
 
@@ -26,6 +25,7 @@ def default_args() -> List[Callable]:
         training.add_optimizer_args,
         training.add_scheduler_args,
         training.add_loss_args,
+        training.add_metrics_args,
         callbacks.add_early_stopping_args,
         callbacks.add_checkpointing_args,
         log.add_logging_args,
@@ -68,3 +68,12 @@ def entry_point(base_parser_factory: Callable, extensions: Optional[List[Callabl
         return wrapped
 
     return wrapper
+
+
+def comma_separated_list_of_strings(value: str) -> List[str]:
+    return value.split(',')
+
+
+def comma_separated_list_of_integers(value: str) -> List[int]:
+    return list(map(int, comma_separated_list_of_strings(value)))
+
