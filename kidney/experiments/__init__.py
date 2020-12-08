@@ -1,5 +1,7 @@
+from collections import defaultdict
 from typing import Optional, Dict, Callable, List, Any
 
+import numpy as np
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
@@ -57,19 +59,23 @@ class BaseExperiment(pl.LightningModule):  # noqa
         self.training_loss += loss.item()
         self._log_optimization_metrics()
         step_metrics = self._log_performance_metrics(outputs, batch)
-        return {"step_loss": loss, "step_metrics": step_metrics}
+        return {"loss": loss, **step_metrics}
 
     def validation_step(self, batch: Dict, batch_no: int) -> Dict:
         outputs = self(batch)
         loss = outputs["loss"]
         step_metrics = self._log_performance_metrics(outputs, batch)
-        return {"val_step_loss": loss, "val_step_metrics": step_metrics}
+        return {"loss": loss, **step_metrics}
 
     def training_epoch_end(self, outputs: List[Any]) -> None:
-        pass
+        self.logger.experiment.log(
+            compute_average_metrics(outputs, suffix="avg_trn_")
+        )
 
     def validation_epoch_end(self, outputs: List[Any]) -> None:
-        pass
+        self.logger.experiment.log(
+            compute_average_metrics(outputs, suffix="avg_val_")
+        )
 
     def create_model(self) -> nn.Module:
         raise NotImplementedError("model's builder is not defined")
@@ -147,3 +153,14 @@ def create_loss(hparams: AttributeDict) -> Callable:
 
 def create_metrics(hparams: AttributeDict) -> List[Callable]:
     return []
+
+
+def compute_average_metrics(outputs: List[Any], suffix: Optional[str] = None) -> Dict:
+    acc = defaultdict(list)
+    for record in outputs:
+        for k, v in record.items():
+            acc[k].append(v.item())
+    return {
+        k if suffix is None else f"{suffix}{k}": np.mean(collected)
+        for k, collected in acc.items()
+    }
