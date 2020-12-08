@@ -55,12 +55,14 @@ def make_trainer_init_params(params: AttributeDict) -> AttributeDict:
         else None
     )
 
+    callbacks = []
+
     if params.early_stopping_enabled:
-        config["early_stopping_callback"] = EarlyStopping(
+        callbacks.append(EarlyStopping(
             monitor=params.early_stopping_metric,
             mode=params.early_stopping_mode,
             patience=params.early_stopping_patience
-        )
+        ))
 
     if params.checkpoints_enabled:
         filepath = params.get('checkpoints_path')
@@ -71,17 +73,20 @@ def make_trainer_init_params(params: AttributeDict) -> AttributeDict:
                 params.timestamp,
                 params.checkpoints_metric
             )
-        config["checkpoints_callback"] = ModelCheckpoint(
+        callbacks.append(ModelCheckpoint(
             filepath=filepath,
             monitor=params.checkpoints_metric,
             mode=params.checkpoints_mode,
             save_top_k=params.checkpoints_top_k
-        )
+        ))
+    else:
+        config["checkpoint_callback"] = False
 
     defaults = get_trainer_specific_args(params)
 
     final_config = AttributeDict(defaults.copy())
     final_config.update(config)  # override defaults with given params
+    final_config["callbacks"] = callbacks
     if 'gpus' in final_config and isinstance(final_config['gpus'], int):
         final_config['gpus'] = [final_config['gpus']]
 
