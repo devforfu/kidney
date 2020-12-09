@@ -22,8 +22,8 @@ class BaseExperiment(pl.LightningModule):  # noqa
         self.model_outputs = []
         self.true_targets = []
         self.model = self.create_model()
-        self.metrics: Optional[List[Callable]] = None
-        self.loss_fn: Optional[Callable] = None
+        self.metrics: Optional[List[Callable]] = create_metrics(self.hparams)
+        self.loss_fn: Optional[Callable] = create_loss(self.hparams)
         self.scheduler: Optional[_LRScheduler] = None
 
     def model_parameters(self) -> List:
@@ -39,8 +39,6 @@ class BaseExperiment(pl.LightningModule):  # noqa
 
     def configure_optimizers(self) -> Dict:
         opt = create_optimizer(self.model_parameters(), self.hparams)
-        self.metrics = create_metrics(self.hparams)
-        self.loss_fn = create_loss(self.hparams)
         self.scheduler = create_scheduler(opt, self)
         return (
             {"optimizer": opt}
