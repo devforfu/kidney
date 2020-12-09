@@ -1,4 +1,5 @@
 from collections import defaultdict
+from os.path import join
 from typing import Optional, Dict, Callable, List, Any
 
 import numpy as np
@@ -8,6 +9,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.utilities import AttributeDict
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler, ExponentialLR, CosineAnnealingLR  # noqa
+from zeus.utils import classname
 
 
 class BaseExperiment(pl.LightningModule):  # noqa
@@ -164,3 +166,21 @@ def compute_average_metrics(outputs: List[Any], suffix: Optional[str] = None) ->
         k if suffix is None else f"{suffix}{k}": np.mean(collected)
         for k, collected in acc.items()
     }
+
+
+def save_experiment_info(
+    trainer: pl.Trainer,
+    info: Dict,
+    filename: str = "info"
+) -> Optional[str]:
+    try:
+        [checkpoints] = [
+            cb
+            for cb in trainer.callbacks
+            if classname(cb) == "ModelCheckpoint"
+        ]
+    except ValueError:
+        return None
+    dir_path = checkpoints.dirpath
+    torch.save(info, join(dir_path, f"{filename}.pth"))
+    return dir_path
