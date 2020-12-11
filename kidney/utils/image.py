@@ -65,7 +65,11 @@ def overlay(
         image_combined: The combined image.
 
     """
-    color = np.asarray(color).reshape(1, 1, 3)
+    assert image.ndim == 3, "image array should have three dimensions"
+    if image.shape[-1] == 1:
+        image = image.repeat(3, axis=-1)
+
+    color = np.asarray(color).reshape((1, 1, 3))
     colored_mask = np.expand_dims(mask, -1).repeat(3, axis=-1)
     masked = np.ma.MaskedArray(image, mask=colored_mask, fill_value=color)
     image_overlay = masked.filled()

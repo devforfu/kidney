@@ -43,7 +43,8 @@ def generate_synthetic_data(
     output_dir: str = "/tmp/toy",
     train_size: float = 0.5,
     image_key: str = "img",
-    mask_key: str = "seg"
+    mask_key: str = "seg",
+    rescale: bool = True
 ) -> ToyData:
     os.makedirs(output_dir, exist_ok=True)
 
@@ -64,6 +65,8 @@ def generate_synthetic_data(
             record = {}
             for suffix, arr in ((image_key, image), (mask_key, mask)):
                 path = join(output_dir, f"{suffix}{i:d}_{subset}.png")
+                if rescale:
+                    arr *= 255
                 PIL.Image.fromarray(arr.astype(np.uint8)).save(path)
                 record[suffix] = path
             records[subset].append(record)
@@ -131,8 +134,8 @@ def create_data_loaders(
     ):
         loaders[subset] = DataLoader(
             dataset=Dataset(
-                data=toy_data.train,
-                transform=transformers.train
+                data=getattr(toy_data, subset),
+                transform=getattr(transformers, subset)
             ),
             batch_size=batch_size,
             shuffle=subset == "train",
