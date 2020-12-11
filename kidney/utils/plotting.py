@@ -1,8 +1,6 @@
 from typing import Optional, Union, Tuple, Dict
 
-import cv2 as cv
 import numpy as np
-import PIL.Image
 from matplotlib.axis import Axis
 from zeus.plotting.utils import axes
 

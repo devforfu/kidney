@@ -29,13 +29,13 @@ def main(params: AttributeDict):
     logger = get_logger(__file__)
 
     logger.info("generating synthetic data")
-    data = generate_synthetic_data(40)
+    data = generate_synthetic_data(1000)
 
     logger.info("create transformations")
     transformers = create_transformers(data)
 
     logger.info("creating data loaders")
-    loaders = create_data_loaders(data, transformers, num_workers=cpu_count())
+    loaders = create_data_loaders(data, transformers, batch_sizes=(128, 64), num_workers=cpu_count())
 
     logger.info("trainer initialization")
     trainer = pl.Trainer(**make_trainer_init_params(params))

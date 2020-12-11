@@ -5,6 +5,7 @@ References:
 
 """
 import os
+import shutil
 from collections import defaultdict, OrderedDict
 from dataclasses import dataclass
 from os.path import join
@@ -41,11 +42,13 @@ def generate_synthetic_data(
     image_size: int = 128,
     num_seg_classes: int = 1,
     output_dir: str = "/tmp/toy",
-    train_size: float = 0.5,
+    train_size: float = 0.8,
     image_key: str = "img",
     mask_key: str = "seg",
-    rescale: bool = True
+    rescale: bool = False
 ) -> ToyData:
+    shutil.rmtree(output_dir)
+
     os.makedirs(output_dir, exist_ok=True)
 
     num_train_samples = int(total_samples*train_size)
