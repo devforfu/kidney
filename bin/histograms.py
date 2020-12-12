@@ -45,6 +45,7 @@ def compute_histogram(sample: Dict[str, Any], bin_size: int) -> Dict[str, Any]:
     path = sample['image']
     logger.info('computing histogram: %s', path)
     image = read_image_as_numpy(path)
+    sample['image_shape'] = list(image.shape)
     sample['hist'] = pixel_histogram(image, bin_size)
     return sample
 
