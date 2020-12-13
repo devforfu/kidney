@@ -6,9 +6,13 @@ from operator import itemgetter
 from os.path import exists
 from typing import Tuple, List, Set
 
+from monai.data import PILReader
+from monai.transforms import Compose, LoadImaged, AddChanneld
 from pydantic import BaseModel, Extra
 from zeus.utils import named_match, read_json
 from zeus.utils.collections import NamedList
+
+from kidney.datasets.transformers import Transformers
 
 DEFAULT_REGEX = (
     r'(?P<key>[\w\d]+)\.'
@@ -132,6 +136,8 @@ def read_masked_images_from_json(
 
 @dataclass
 class SegmentationData:
+    image_key: str
+    mask_key: str
     train_keys: Set[str]
     valid_keys: Set[str]
     train: List[SegmentationSample]
@@ -166,6 +172,8 @@ def read_segmentation_data_from_json(
         subset.append(sample)
 
     return SegmentationData(
+        image_key="image_path",
+        mask_key="mask_path",
         train_keys=train_keys,
         valid_keys=valid_keys,
         train=train_samples,

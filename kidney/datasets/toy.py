@@ -27,6 +27,8 @@ from monai.transforms import (
 )
 from torch.utils.data import DataLoader
 
+from kidney.datasets.transformers import Transformers
+
 
 @dataclass
 class ToyData:
@@ -83,43 +85,36 @@ def generate_synthetic_data(
     )
 
 
-@dataclass
-class Transformers:
-    train: Compose
-    valid: Compose
-    post: Compose
-
-
-def create_transformers(toy_data: ToyData) -> Transformers:
-    image_key, mask_key = keys = toy_data.keys
-    crop_size = int(0.75 * toy_data.image_size)
-    return Transformers(
-        train=Compose([
-            LoadImaged(reader=PILReader(), keys=keys),
-            AddChanneld(keys=keys),
-            ScaleIntensityd(keys=image_key),
-            RandCropByPosNegLabeld(
-                keys=keys,
-                label_key=mask_key,
-                spatial_size=[crop_size, crop_size],
-                pos=1,
-                neg=1,
-                num_samples=4
-            ),
-            RandRotate90d(keys=keys, prob=0.5, spatial_axes=(0, 1)),
-            ToTensord(keys=keys)
-        ]),
-        valid=Compose([
-            LoadImaged(reader=PILReader(), keys=keys),
-            AddChanneld(keys=keys),
-            ScaleIntensityd(keys=image_key),
-            ToTensord(keys=keys)
-        ]),
-        post=Compose([
-            Activations(sigmoid=True),
-            AsDiscrete(threshold_values=True)
-        ])
-    )
+# def create_transformers(toy_data: ToyData) -> Transformers:
+#     image_key, mask_key = keys = toy_data.keys
+#     crop_size = int(0.75 * toy_data.image_size)
+#     return Transformers(
+#         train=Compose([
+#             LoadImaged(reader=PILReader(), keys=keys),
+#             AddChanneld(keys=keys),
+#             ScaleIntensityd(keys=image_key),
+#             RandCropByPosNegLabeld(
+#                 keys=keys,
+#                 label_key=mask_key,
+#                 spatial_size=[crop_size, crop_size],
+#                 pos=1,
+#                 neg=1,
+#                 num_samples=4
+#             ),
+#             RandRotate90d(keys=keys, prob=0.5, spatial_axes=(0, 1)),
+#             ToTensord(keys=keys)
+#         ]),
+#         valid=Compose([
+#             LoadImaged(reader=PILReader(), keys=keys),
+#             AddChanneld(keys=keys),
+#             ScaleIntensityd(keys=image_key),
+#             ToTensord(keys=keys)
+#         ]),
+#         post=Compose([
+#             Activations(sigmoid=True),
+#             AsDiscrete(threshold_values=True)
+#         ])
+#     )
 
 
 def create_data_loaders(

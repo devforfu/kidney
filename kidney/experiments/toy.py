@@ -13,7 +13,8 @@ from kidney.cli import entry_point, default_args
 from kidney.cli.basic import basic_parser
 from kidney.cli.lightning import make_trainer_init_params
 from kidney.cli.models import add_unet_args
-from kidney.datasets.toy import generate_synthetic_data, create_transformers, create_data_loaders
+from kidney.datasets.toy import generate_synthetic_data, create_data_loaders
+from kidney.datasets.transformers import create_transformers_crop_to_many
 from kidney.experiments import BaseExperiment, save_experiment_info
 from kidney.log import get_logger
 from kidney.models.unet import create_unet_model
@@ -32,7 +33,11 @@ def main(params: AttributeDict):
     data = generate_synthetic_data(1000)
 
     logger.info("create transformations")
-    transformers = create_transformers(data)
+    transformers = create_transformers_crop_to_many(
+        image_key=data.keys[0],
+        mask_key=data.keys[1],
+        image_size=data.image_size
+    )
 
     logger.info("creating data loaders")
     loaders = create_data_loaders(data, transformers, batch_sizes=(128, 64), num_workers=cpu_count())
