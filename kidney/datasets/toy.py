@@ -13,18 +13,7 @@ from typing import List, Dict, Tuple
 
 import PIL.Image
 import numpy as np
-from monai.data import create_test_image_2d, PILReader, Dataset, list_data_collate
-from monai.transforms import (
-    Compose,
-    LoadImaged,
-    AddChanneld,
-    ScaleIntensityd,
-    RandCropByPosNegLabeld,
-    RandRotate90d,
-    ToTensord,
-    Activations,
-    AsDiscrete
-)
+from monai.data import create_test_image_2d, Dataset, list_data_collate
 from torch.utils.data import DataLoader
 
 from kidney.datasets.transformers import Transformers
@@ -83,38 +72,6 @@ def generate_synthetic_data(
         train=records["train"],
         valid=records["valid"]
     )
-
-
-# def create_transformers(toy_data: ToyData) -> Transformers:
-#     image_key, mask_key = keys = toy_data.keys
-#     crop_size = int(0.75 * toy_data.image_size)
-#     return Transformers(
-#         train=Compose([
-#             LoadImaged(reader=PILReader(), keys=keys),
-#             AddChanneld(keys=keys),
-#             ScaleIntensityd(keys=image_key),
-#             RandCropByPosNegLabeld(
-#                 keys=keys,
-#                 label_key=mask_key,
-#                 spatial_size=[crop_size, crop_size],
-#                 pos=1,
-#                 neg=1,
-#                 num_samples=4
-#             ),
-#             RandRotate90d(keys=keys, prob=0.5, spatial_axes=(0, 1)),
-#             ToTensord(keys=keys)
-#         ]),
-#         valid=Compose([
-#             LoadImaged(reader=PILReader(), keys=keys),
-#             AddChanneld(keys=keys),
-#             ScaleIntensityd(keys=image_key),
-#             ToTensord(keys=keys)
-#         ]),
-#         post=Compose([
-#             Activations(sigmoid=True),
-#             AsDiscrete(threshold_values=True)
-#         ])
-#     )
 
 
 def create_data_loaders(
