@@ -1,14 +1,19 @@
 import glob
 import random
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from dataclasses import dataclass
+from multiprocessing import cpu_count
 from operator import itemgetter
 from os.path import exists
-from typing import Tuple, List, Set
+from typing import Tuple, List, Set, Dict, Union
 
+from monai.data import Dataset, list_data_collate
 from pydantic import BaseModel, Extra
+from torch.utils.data import DataLoader
 from zeus.utils import named_match, read_json
 from zeus.utils.collections import NamedList
+
+from kidney.datasets.transformers import Transformers
 
 DEFAULT_REGEX = (
     r'(?P<key>[\w\d]+)\.'
@@ -136,8 +141,8 @@ class SegmentationData:
     mask_key: str
     train_keys: Set[str]
     valid_keys: Set[str]
-    train: List[SegmentationSample]
-    valid: List[SegmentationSample]
+    train: List[Dict]
+    valid: List[Dict]
 
 
 def read_segmentation_data_from_json(
@@ -165,11 +170,14 @@ def read_segmentation_data_from_json(
             if sample.source_key in train_keys
             else valid_samples
         )
-        subset.append(sample)
+        subset.append({
+            "img": sample.image_path,
+            "seg": sample.mask_path
+        })
 
     return SegmentationData(
-        image_key="image_path",
-        mask_key="mask_path",
+        image_key="img",
+        mask_key="seg",
         train_keys=train_keys,
         valid_keys=valid_keys,
         train=train_samples,
@@ -177,11 +185,29 @@ def read_segmentation_data_from_json(
     )
 
 
-def main():
-    json_file = "/mnt/fast/data/kidney_patches/histograms.json"
-    data = read_segmentation_data_from_json(json_file)
-    print(data)
-
-
-if __name__ == '__main__':
-    main()
+def create_data_loaders(
+    data: SegmentationData,
+    transformers: Transformers,
+    batch_size: Union[int, Tuple[int, int]] = 4,
+    num_workers: int = cpu_count()
+) -> OrderedDict:
+    if isinstance(batch_size, tuple):
+        train_size, valid_size = batch_size
+    else:
+        train_size = valid_size = batch_size
+    loaders = OrderedDict()
+    for subset, batch_size in (
+        ("train", train_size),
+        ("valid", valid_size)
+    ):
+        loaders[subset] = DataLoader(
+            dataset=Dataset(
+                data=getattr(data, subset),
+                transform=getattr(transformers, subset)
+            ),
+            batch_size=batch_size,
+            shuffle=subset == "train",
+            num_workers=num_workers,
+            collate_fn=list_data_collate
+        )
+    return loaders

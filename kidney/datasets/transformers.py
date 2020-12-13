@@ -2,13 +2,8 @@ from dataclasses import dataclass
 from typing import Union, Tuple
 
 from monai.data import PILReader
-from monai.transforms import (
-    Compose,
-    LoadImaged,
-    AddChanneld,
-    ScaleIntensityd,
-    RandCropByPosNegLabeld, RandRotate90d, ToTensord, Activations, AsDiscrete
-)
+from monai.transforms import Compose, RandCropByPosNegLabeld, RandSpatialCropSamplesd, LoadImaged, ScaleIntensityd, \
+    RandRotate90d, ToTensord, Activations, AsDiscrete
 
 
 @dataclass
@@ -24,7 +19,8 @@ def create_transformers_crop_to_many(
     image_size: Union[int, Tuple[int, int]],
     crop_fraction: float = 0.75,
     num_samples: int = 4,
-    rotation_prob: float = 0.5
+    rotation_prob: float = 0.5,
+    crop_balanced: bool = True
 ) -> Transformers:
     """Created transformers with default transformation scheme from MONAI example.
 
@@ -42,6 +38,10 @@ def create_transformers_crop_to_many(
         Number of crops to generate from a single sample.
     rotation_prob
         Rotation transformation probability.
+    crop_balanced
+        If True, crop sample image while keeping balance between negative and positive
+        classes. Doesn't work properly in case if some samples of the dataset don't
+        have segmentation mask.
 
     Returns
     -------
@@ -55,19 +55,26 @@ def create_transformers_crop_to_many(
         h = w = image_size
     keys = image_key, mask_key
     spatial_size = [int(h*crop_fraction), int(w*crop_fraction)]
+
+    random_crop = (
+        RandCropByPosNegLabeld(
+            keys=keys, label_key=mask_key,
+            spatial_size=spatial_size,
+            pos=1, neg=1, num_samples=num_samples
+        )
+        if crop_balanced
+        else
+        RandSpatialCropSamplesd(
+            keys=keys, roi_size=spatial_size,
+            num_samples=num_samples, random_size=False
+        )
+    )
+
     return Transformers(
         train=Compose([
             LoadImaged(reader=PILReader(), keys=keys),
-            AddChanneld(keys=keys),
             ScaleIntensityd(keys=image_key),
-            RandCropByPosNegLabeld(
-                keys=keys,
-                label_key=mask_key,
-                spatial_size=spatial_size,
-                pos=1,
-                neg=1,
-                num_samples=num_samples
-            ),
+            random_crop,
             RandRotate90d(
                 keys=keys,
                 prob=rotation_prob,
@@ -77,7 +84,6 @@ def create_transformers_crop_to_many(
         ]),
         valid=Compose([
             LoadImaged(reader=PILReader(), keys=keys),
-            AddChanneld(keys=keys),
             ScaleIntensityd(keys=image_key),
             ToTensord(keys=keys)
         ]),

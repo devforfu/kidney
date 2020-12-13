@@ -1,3 +1,5 @@
+import glob
+import random
 from typing import Tuple, Optional, Dict
 
 import cv2 as cv
@@ -109,3 +111,9 @@ def pixel_histogram(image: np.ndarray, bin_size: int = 4) -> pd.Series:
         .value_counts()
         .rename('count')
     )
+
+
+def random_image_shape(folder: str):
+    filename = random.choice(glob.glob(f"{folder}/*.png"))
+    arr = read_image_as_numpy(filename)
+    return arr.shape[:2]

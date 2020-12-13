@@ -1,5 +1,3 @@
-"""A toy experiment using randomly generated images and MONAI models."""
-from multiprocessing import cpu_count
 from typing import Dict
 
 import pytorch_lightning as pl
@@ -11,10 +9,12 @@ from kidney.cli import entry_point, default_args
 from kidney.cli.basic import basic_parser
 from kidney.cli.lightning import make_trainer_init_params
 from kidney.cli.models import add_unet_args
-from kidney.datasets.toy import generate_synthetic_data, create_data_loaders, create_transformers
-from kidney.experiments import BaseExperiment, save_experiment_info
+from kidney.datasets.segmentation import read_segmentation_data_from_json, create_data_loaders
+from kidney.datasets.transformers import create_transformers_crop_to_many
+from kidney.experiments import BaseExperiment
 from kidney.log import get_logger
 from kidney.models.unet import create_unet_model
+from kidney.utils.image import random_image_shape
 
 
 @entry_point(
@@ -26,41 +26,36 @@ def main(params: AttributeDict):
 
     logger = get_logger(__file__)
 
-    logger.info("generating synthetic data")
-    data = generate_synthetic_data(1000)
+    logger.info("reading segmentation images")
+    json_file = f"{params.dataset}/histograms.json"
+    data = read_segmentation_data_from_json(json_file)
 
-    logger.info("create transformations")
-    transformers = create_transformers(
-        image_key=data.keys[0],
-        mask_key=data.keys[1],
-        image_size=data.image_size
+    logger.info("create transformers")
+    transformers = create_transformers_crop_to_many(
+        image_key=data.image_key,
+        mask_key=data.mask_key,
+        image_size=random_image_shape(params.dataset),
+        crop_balanced=False
     )
 
     logger.info("creating data loaders")
-    loaders = create_data_loaders(data, transformers, batch_sizes=(128, 64), num_workers=cpu_count())
+    loaders = create_data_loaders(
+        data=data,
+        transformers=transformers,
+        batch_size=params.batch_size,
+        num_workers=params.num_workers
+    )
 
     logger.info("trainer initialization")
     trainer = pl.Trainer(**make_trainer_init_params(params))
 
     logger.info("training started...")
-    trainer.fit(model=ToyExperiment(params),
+    trainer.fit(model=SegmentationExperiment(params),
                 train_dataloader=loaders["train"],
                 val_dataloaders=loaders["valid"])
 
-    logger.info("saving experiment parameters into checkpoints folder")
-    params_dir = save_experiment_info(trainer, {
-        "params": params,
-        "data": data,
-        "transformers": transformers
-    })
 
-    if params_dir is None:
-        logger.warning("checkpoints dir is not found; will not save info")
-    else:
-        logger.info("experiment artifacts saved into folder: %s", params_dir)
-
-
-class ToyExperiment(BaseExperiment):
+class SegmentationExperiment(BaseExperiment):
 
     def create_model(self) -> nn.Module:
         return create_unet_model(self.hparams)
