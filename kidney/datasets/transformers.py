@@ -2,8 +2,11 @@ from dataclasses import dataclass
 from typing import Union, Tuple
 
 from monai.data import PILReader
-from monai.transforms import Compose, RandCropByPosNegLabeld, RandSpatialCropSamplesd, LoadImaged, ScaleIntensityd, \
-    RandRotate90d, ToTensord, Activations, AsDiscrete
+from monai.transforms import (
+    Compose, RandCropByPosNegLabeld, RandSpatialCropSamplesd,
+    LoadImaged, ScaleIntensityd, RandRotate90d, ToTensord,
+    Activations, AsDiscrete, AsChannelFirstd, AddChanneld
+)
 
 
 @dataclass
@@ -17,10 +20,10 @@ def create_transformers_crop_to_many(
     image_key: str,
     mask_key: str,
     image_size: Union[int, Tuple[int, int]],
-    crop_fraction: float = 0.75,
+    crop_fraction: float = 0.5,
     num_samples: int = 4,
     rotation_prob: float = 0.5,
-    crop_balanced: bool = True
+    crop_balanced: bool = True,
 ) -> Transformers:
     """Created transformers with default transformation scheme from MONAI example.
 
@@ -73,18 +76,17 @@ def create_transformers_crop_to_many(
     return Transformers(
         train=Compose([
             LoadImaged(reader=PILReader(), keys=keys),
-            ScaleIntensityd(keys=image_key),
+            AsChannelFirstd(keys=image_key),
+            AddChanneld(keys=mask_key),
+            ScaleIntensityd(keys=keys),
             random_crop,
-            RandRotate90d(
-                keys=keys,
-                prob=rotation_prob,
-                spatial_axes=(0, 1)
-            ),
+            RandRotate90d(keys=keys, prob=rotation_prob),
             ToTensord(keys=keys)
         ]),
         valid=Compose([
             LoadImaged(reader=PILReader(), keys=keys),
-            ScaleIntensityd(keys=image_key),
+            AddChanneld(keys=mask_key),
+            ScaleIntensityd(keys=keys),
             ToTensord(keys=keys)
         ]),
         post=Compose([
