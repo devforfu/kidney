@@ -68,13 +68,15 @@ class BaseExperiment(pl.LightningModule):  # noqa
         return {"val_loss": loss, **{f"val_{k}": v for k, v in step_metrics.items()}}
 
     def training_epoch_end(self, outputs: List[Any]) -> None:
-        self.logger.experiment.log(
-            compute_average_metrics(outputs, suffix="avg_trn_")
-        )
+        if hasattr(self.logger, "experiment"):
+            self.logger.experiment.log(
+                compute_average_metrics(outputs, suffix="avg_trn_")
+            )
 
     def validation_epoch_end(self, outputs: List[Any]) -> None:
         avg_val_metrics = compute_average_metrics(outputs, suffix="avg_")
-        self.logger.experiment.log(avg_val_metrics)
+        if hasattr(self.logger, "experiment"):
+            self.logger.experiment.log(avg_val_metrics)
         self.log_dict(avg_val_metrics)
 
     def create_model(self) -> nn.Module:
