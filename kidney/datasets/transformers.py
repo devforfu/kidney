@@ -85,6 +85,7 @@ def create_transformers_crop_to_many(
         ]),
         valid=Compose([
             LoadImaged(reader=PILReader(), keys=keys),
+            AsChannelFirstd(keys=image_key),
             AddChanneld(keys=mask_key),
             ScaleIntensityd(keys=keys),
             ToTensord(keys=keys)
