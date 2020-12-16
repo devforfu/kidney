@@ -24,7 +24,7 @@ from kidney.models.unet import create_unet_model
 def main(params: AttributeDict):
     super_seed(params.seed)
 
-    logger = get_logger(__file__)
+    logger = get_logger(__name__)
 
     logger.info("generating synthetic data")
     data = generate_synthetic_data(1000)
