@@ -11,7 +11,7 @@ from kidney.cli.lightning import make_trainer_init_params
 from kidney.cli.models import add_unet_args
 from kidney.datasets.segmentation import read_segmentation_data_from_json, create_data_loaders
 from kidney.datasets.transformers import create_transformers_crop_to_many
-from kidney.experiments import BaseExperiment
+from kidney.experiments import BaseExperiment, save_experiment_info
 from kidney.log import get_logger
 from kidney.models.unet import create_unet_model
 from kidney.utils.image import random_image_shape
@@ -53,6 +53,18 @@ def main(params: AttributeDict):
     trainer.fit(model=SegmentationExperiment(params),
                 train_dataloader=loaders["train"],
                 val_dataloaders=loaders["valid"])
+
+    logger.info("saving experiment parameters into checkpoints folder")
+    params_dir = save_experiment_info(trainer, {
+        "params": params,
+        "data": data,
+        "transformers": transformers
+    })
+
+    if params_dir is None:
+        logger.warning("checkpoints dir is not found; will not save info")
+    else:
+        logger.info("experiment artifacts saved into folder: %s", params_dir)
 
 
 class SegmentationExperiment(BaseExperiment):
