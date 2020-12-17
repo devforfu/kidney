@@ -7,6 +7,7 @@ from os.path import splitext, join
 from typing import Tuple
 
 import torch
+import pytorch_lightning as pl
 from zeus.utils import home
 
 from kidney.utils.checkpoints import CheckpointsStorage
@@ -22,10 +23,8 @@ def main(args: Namespace):
                                   num_workers=args.num_workers,
                                   batch_size=args.batch_size)
 
-    with torch.no_grad():
-        for batch in loaders[args.subset]:
-            outputs = experiment(batch)["outputs"]
-            outputs = meta["transformers"].post(outputs)
+    trainer = pl.Trainer(gpus=1)
+    trainer.test(experiment, test_dataloaders=loaders["valid"])
 
 
 def get_module_attribute(import_path: str):
@@ -47,6 +46,7 @@ def parse_args() -> Namespace:
     parser.add_argument("-m", "--metric", default="avg_val_loss")
     parser.add_argument("-w", "--num_workers", default=cpu_count(), type=int)
     parser.add_argument("-b", "--batch_size", default=4, type=int)
+    parser.add_argument("-dev", "--device", default="cuda:1")
     return parser.parse_args()
 
 

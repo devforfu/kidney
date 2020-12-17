@@ -67,6 +67,11 @@ class BaseExperiment(pl.LightningModule):  # noqa
         step_metrics = self._log_performance_metrics(outputs, batch)
         return {"val_loss": loss, **{f"val_{k}": v for k, v in step_metrics.items()}}
 
+    def test_step(self, batch: Dict, batch_no: int) -> Dict:
+        outputs = self(batch)["outputs"]
+        step_metrics = self._log_performance_metrics(outputs, batch)
+        return step_metrics
+
     def training_epoch_end(self, outputs: List[Any]) -> None:
         if hasattr(self.logger, "experiment"):
             self.logger.experiment.log(
@@ -78,6 +83,10 @@ class BaseExperiment(pl.LightningModule):  # noqa
         if hasattr(self.logger, "experiment"):
             self.logger.experiment.log(avg_val_metrics)
         self.log_dict(avg_val_metrics)
+
+    def test_epoch_end(self, outputs: List[Any]) -> None:
+        avg_test_metrics = compute_average_metrics(outputs, suffix="test_")
+        self.log_dict(avg_test_metrics)
 
     def create_model(self) -> nn.Module:
         raise NotImplementedError("model's builder is not defined")
