@@ -84,8 +84,8 @@ def generate_patches(
     if drop_last:
         # otherwise, the last patches can be smaller than (size, size) shape;
         # ignoring them for now but consider padding edge patches instead
-        y_size -= stride
-        x_size -= stride
+        y_size -= size
+        x_size -= size
 
     for dy in range(0, y_size, stride):
         for dx in range(0, x_size, stride):
