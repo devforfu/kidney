@@ -17,3 +17,4 @@
 --early_stopping_metric=avg_val_loss
 --early_stopping_patience=10
 --scheduler_name=expo
+--scheduler_interval=step
