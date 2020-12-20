@@ -1,6 +1,8 @@
+import fnmatch
 import glob
+import os
 import random
-from typing import Tuple, Optional, Dict
+from typing import Tuple, Optional, Dict, Set
 
 import cv2 as cv
 import numpy as np
@@ -113,7 +115,21 @@ def pixel_histogram(image: np.ndarray, bin_size: int = 4) -> pd.Series:
     )
 
 
-def random_image_shape(folder: str):
+def random_image_shape(folder: str) -> Tuple[int, ...]:
+    """Picks a random image from a folder and computes its size.
+
+    In case if all images in the folder are of the same size, this function
+    helps quickly get dataset's samples shape. The function doesn't ensure
+    that all images do *actually* have the same size though.
+    """
     filename = random.choice(glob.glob(f"{folder}/*.png"))
     arr = read_image_as_numpy(filename)
-    return arr.shape[:2]
+    return arr.shape
+
+
+def compute_image_sizes(root: str) -> Set[Tuple[int, ...]]:
+    """Computes unique image sizes for samples in a folder."""
+
+    files = (os.path.join(root, fn) for fn in os.listdir(root))
+    sizes = {PIL.Image.open(fn).size for fn in files if fnmatch.fnmatch(fn, "*.png")}
+    return sizes
