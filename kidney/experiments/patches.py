@@ -31,10 +31,11 @@ def main(params: AttributeDict):
     data = read_segmentation_data_from_json(json_file)
 
     logger.info("create transformers")
+    h, w, *_ = random_image_shape(params.dataset)
     transformers = create_transformers_crop_to_many(
         image_key=data.image_key,
         mask_key=data.mask_key,
-        image_size=random_image_shape(params.dataset),
+        image_size=(h, w),
         crop_balanced=False
     )
 
