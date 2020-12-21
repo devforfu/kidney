@@ -8,6 +8,7 @@ import cv2 as cv
 import numpy as np
 import pandas as pd
 import PIL.Image
+import torch
 
 
 def detect_roi(
@@ -133,3 +134,35 @@ def compute_image_sizes(root: str) -> Set[Tuple[int, ...]]:
     files = (os.path.join(root, fn) for fn in os.listdir(root))
     sizes = {PIL.Image.open(fn).size for fn in files if fnmatch.fnmatch(fn, "*.png")}
     return sizes
+
+
+def channels_first(image: np.ndarray) -> np.ndarray:
+    """Transforms image into channels-first format if it isn't yet."""
+
+    if image.ndim == 2:
+        return image[np.newaxis, :]
+    elif image.ndim == 3:
+        if image.shape[-1] in (1, 3):
+            return image.transpose((2, 0, 1))
+    raise ValueError(f"wrong image shape: {image.shape}")
+
+
+def channels_last(image: np.ndarray) -> np.ndarray:
+    """Transforms image into channels-last format if it isn't yet."""
+
+    if image.ndim == 2:
+        return image[:, np.newaxis]
+    elif image.ndim == 3:
+        if image.shape[0] in (1, 3):
+            return image.transpose((1, 2, 0))
+    raise ValueError(f"wrong image shape: {image.shape}")
+
+
+def scale_intensity_tensor(tensor: torch.tensor, scale_range: Tuple[float, float] = (0.0, 1.0)):
+    lo, hi = tensor.min(), tensor.max()
+    if lo == hi:
+        return tensor * lo
+    range_lo, range_hi = scale_range
+    tensor.sub_(lo).div_(hi - lo)
+    tensor.mul_(range_hi - range_lo).add_(range_lo)
+    return tensor
