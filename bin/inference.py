@@ -8,7 +8,6 @@ import pytorch_lightning as pl
 import torch
 from monai.inferers import sliding_window_inference
 from pytorch_lightning.utilities import AttributeDict
-from zeus.torch_tools.utils import to_np
 
 from kidney.datasets.kaggle import get_reader, SampleType
 from kidney.parameters import as_attribute_dict, requires
@@ -69,7 +68,7 @@ def inference(args: AttributeDict):
             sample = channels_first(sample["image"])
             sample = torch.as_tensor(sample[np.newaxis, :])
             sample = sliding_window_inference(sample, args.roi_size, args.batch_size, predictor)
-            encoded = rle_encode_tensor(sample.squeeze())
+            encoded = rle_encode(sample.squeeze())
             predictions.append((key, encoded))
 
         predictions = pd.DataFrame(columns=["id", "predicted"], data=predictions)
