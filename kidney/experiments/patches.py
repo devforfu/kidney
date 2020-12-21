@@ -9,7 +9,7 @@ from kidney.cli import entry_point, default_args
 from kidney.cli.basic import basic_parser
 from kidney.cli.lightning import make_trainer_init_params
 from kidney.cli.models import add_unet_args
-from kidney.datasets.segmentation import read_segmentation_data_from_json, create_data_loaders
+from kidney.datasets.patches import read_segmentation_data_from_json, create_data_loaders
 from kidney.datasets.transformers import create_transformers_crop_to_many
 from kidney.experiments import BaseExperiment, save_experiment_info
 from kidney.log import get_logger

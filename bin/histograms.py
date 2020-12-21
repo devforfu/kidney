@@ -8,7 +8,7 @@ from typing import Dict, Any
 import dask.bag as db
 from distributed import Client
 
-from kidney.datasets.segmentation import read_masked_images
+from kidney.datasets.patches import read_masked_images
 from kidney.log import get_logger
 from kidney.utils.image import read_image_as_numpy, pixel_histogram
 
