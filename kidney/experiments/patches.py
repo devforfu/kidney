@@ -75,8 +75,10 @@ class SegmentationExperiment(BaseExperiment):
 
     def forward(self, batch: Dict) -> Dict:
         predicted_mask = self.model(batch["img"])
-        loss = self.loss_fn(predicted_mask, batch["seg"])
-        return {"loss": loss, "outputs": predicted_mask}
+        if "seg" in batch:
+            loss = self.loss_fn(predicted_mask, batch["seg"])
+            return {"loss": loss, "outputs": predicted_mask}
+        return {"outputs": predicted_mask}
 
 
 if __name__ == '__main__':
