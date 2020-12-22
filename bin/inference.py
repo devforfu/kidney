@@ -2,17 +2,14 @@ import importlib
 from argparse import Namespace, ArgumentParser
 from multiprocessing import cpu_count
 
-import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
-import torch
-from monai.inferers import sliding_window_inference
 from pytorch_lightning.utilities import AttributeDict
 
 from kidney.datasets.kaggle import get_reader, SampleType
+from kidney.inference.inference import create_inference_instance, InferenceAlgorithm
 from kidney.parameters import as_attribute_dict, requires
 from kidney.utils.checkpoints import CheckpointsStorage
-from kidney.utils.image import channels_first, scale_intensity_tensor
 from kidney.utils.mask import rle_encode
 
 
@@ -47,30 +44,21 @@ def inference(args: AttributeDict):
         trainer = pl.Trainer(gpus=1)
         trainer.test(experiment, test_dataloaders=loaders[args.subset])
     else:
-        device = torch.device(args.device)
-        experiment = experiment.to(device)
-
-        def predictor(tensor: torch.Tensor) -> torch.Tensor:
-            nonlocal experiment, device
-            with torch.no_grad():
-                scaled = scale_intensity_tensor(tensor)
-                tensor = scaled.float().to(device)
-                outputs = experiment({"img": tensor})["outputs"]
-                predicted_mask = transformers.post(outputs)
-            return predicted_mask
-
+        predictor = create_inference_instance(
+            algorithm=InferenceAlgorithm.Default,
+            experiment=experiment,
+            device=args.device,
+            transformers=transformers,
+            check_for_outliers=False
+        )
         reader = get_reader()
         test_keys = reader.get_keys(SampleType.Unlabeled)
         predictions = []
-
         for key in test_keys:
-            sample = reader.fetch_one(key)
-            sample = channels_first(sample["image"])
-            sample = torch.as_tensor(sample[np.newaxis, :])
-            sample = sliding_window_inference(sample, args.roi_size, args.batch_size, predictor)
-            encoded = rle_encode(sample.squeeze())
+            meta = reader.fetch_meta(key)
+            predicted = predictor.predict_from_file(meta["tiff"])
+            encoded = rle_encode(predicted)
             predictions.append((key, encoded))
-
         predictions = pd.DataFrame(columns=["id", "predicted"], data=predictions)
         predictions.to_csv(args.output_file, index=False)
 

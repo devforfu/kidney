@@ -1,14 +1,15 @@
 import glob
 import os
-import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import auto, Enum
 from os.path import basename, splitext
 from typing import List, Any, Dict, Optional
 
+import numpy as np
 import pandas as pd
 
+from kidney.utils.image import pixel_histogram
 from kidney.utils.mask import rle_decode
 from kidney.utils.tiff import read_tiff
 
@@ -89,6 +90,24 @@ class KaggleKidneyDatasetReader(DatasetReader):
         if mask is not None:
             sample['mask'] = rle_decode(mask, image.shape[:2])
         return sample
+
+
+def outlier(image: np.ndarray, bin_size: int = 4, threshold: int = 1000) -> bool:
+    """Checks if image contains relevant content.
+
+    Some images from the dataset include areas without cells and therefore
+    useless for model training. This function uses simple heuristic to do
+    a basic check to filter the most prominent outliers out.
+    """
+    df_hist = (
+        pixel_histogram(image, bin_size)
+        .reset_index()
+        .sort_values('count')
+        .reset_index(drop=True)
+    )
+    median = df_hist.shape[0] // 2
+    count = df_hist.iloc[median]['count'].item()
+    return count < threshold
 
 
 def get_reader():

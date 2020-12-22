@@ -138,10 +138,11 @@ def compute_image_sizes(root: str) -> Set[Tuple[int, ...]]:
 
 def channels_first(image: np.ndarray) -> np.ndarray:
     """Transforms image into channels-first format if it isn't yet."""
-
     if image.ndim == 2:
         return image[np.newaxis, :]
     elif image.ndim == 3:
+        if image.shape[0] in (1, 3):
+            return image  # already in channels-first format
         if image.shape[-1] in (1, 3):
             return image.transpose((2, 0, 1))
     raise ValueError(f"wrong image shape: {image.shape}")
@@ -158,10 +159,11 @@ def channels_last(image: np.ndarray) -> np.ndarray:
     raise ValueError(f"wrong image shape: {image.shape}")
 
 
-def scale_intensity_tensor(tensor: torch.tensor, scale_range: Tuple[float, float] = (0.0, 1.0)):
+def scale_intensity_tensor(tensor: torch.Tensor, scale_range: Tuple[float, float] = (0.0, 1.0)):
+    tensor = tensor.float()
     lo, hi = tensor.min(), tensor.max()
     if lo == hi:
-        return tensor * lo
+        return tensor.float() * lo
     range_lo, range_hi = scale_range
     tensor.sub_(lo).div_(hi - lo)
     tensor.mul_(range_hi - range_lo).add_(range_lo)
