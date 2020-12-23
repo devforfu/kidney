@@ -1,13 +1,16 @@
 import abc
 from dataclasses import dataclass
-from typing import Union, Tuple, Callable, Dict
+from enum import auto, Enum
+from typing import Union, Tuple, Callable, Dict, Mapping, Hashable
 
 import torch
+import numpy as np
 from monai.data import PILReader
 from monai.transforms import (
     Compose, RandCropByPosNegLabeld, RandSpatialCropSamplesd,
     LoadImaged, ScaleIntensityd, RandRotate90d, ToTensord,
-    Activations, AsDiscrete, AsChannelFirstd, AddChanneld
+    Activations, AsDiscrete, AsChannelFirstd, AddChanneld,
+    NormalizeIntensityd, MapTransform, KeysCollection
 )
 
 from kidney.utils.image import scale_intensity_tensor
@@ -61,8 +64,13 @@ class SigmoidOutputAsMask(OutputPostprocessor):
 class Transformers:
     train: Callable
     valid: Callable
-    test_preprocessing: InputPreprocessor
-    test_postprocessing: OutputPostprocessor
+    test_preprocessing: Callable
+    test_postprocessing: Callable
+
+
+class IntensityNormalization(Enum):
+    ZeroOne = auto()
+    ImageNet = auto()
 
 
 def create_monai_crop_to_many_sigmoid_transformers(
@@ -75,6 +83,7 @@ def create_monai_crop_to_many_sigmoid_transformers(
     crop_balanced: bool = True,
     load_from_disk: bool = True,
     as_channels_first: bool = True,
+    normalization: IntensityNormalization = IntensityNormalization.ZeroOne,
 ) -> Transformers:
     """Created transformers with default transformation scheme from MONAI example.
 
@@ -126,9 +135,23 @@ def create_monai_crop_to_many_sigmoid_transformers(
         )
     )
 
+    intensity_normalization = (
+        [ScaleIntensityd(keys=image_key)]
+        if normalization == IntensityNormalization.ZeroOne
+        else
+        [
+            ScaleIntensityd(keys=image_key),
+            NormalizeGlobalMeanStd(
+                keys=image_key,
+                mean=np.array([0.625, 0.448, 0.688]).reshape((3, 1, 1)).astype(np.float32),
+                std=np.array([0.131, 0.177, 0.101]).reshape((3, 1, 1)).astype(np.float32)
+            )
+        ]
+    )
+
     train_steps = [
         AddChanneld(keys=mask_key),
-        ScaleIntensityd(keys=keys),
+        *intensity_normalization,
         random_crop,
         RandRotate90d(keys=keys, prob=rotation_prob),
         ToTensord(keys=keys)
@@ -136,7 +159,7 @@ def create_monai_crop_to_many_sigmoid_transformers(
 
     valid_steps = [
         AddChanneld(keys=mask_key),
-        ScaleIntensityd(keys=keys),
+        *intensity_normalization,
         ToTensord(keys=keys)
     ]
 
@@ -151,6 +174,28 @@ def create_monai_crop_to_many_sigmoid_transformers(
     return Transformers(
         train=Compose(train_steps),
         valid=Compose(valid_steps),
-        test_preprocessing=ImageNormalization(),
+        test_preprocessing=Compose(intensity_normalization),
         test_postprocessing=SigmoidOutputAsMask()
     )
+
+
+class NormalizeGlobalMeanStd(MapTransform):
+
+    def __init__(
+        self,
+        keys: KeysCollection,
+        mean: np.ndarray,
+        std: np.ndarray
+    ):
+        super().__init__(keys)
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, data: Mapping[Hashable, np.ndarray]) -> Dict[Hashable, np.ndarray]:
+        d = dict(data)
+        for key in self.keys:
+            d[key] = self.normalize(d[key])
+        return d
+
+    def normalize(self, arr: np.ndarray) -> np.ndarray:
+        return (arr - self.mean)/self.std

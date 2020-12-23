@@ -11,7 +11,7 @@ from kidney.cli.lightning import make_trainer_init_params
 from kidney.cli.models import add_fcn_args
 from kidney.datasets.kaggle import get_reader
 from kidney.datasets.online import create_data_loaders
-from kidney.datasets.transformers import create_monai_crop_to_many_sigmoid_transformers
+from kidney.datasets.transformers import create_monai_crop_to_many_sigmoid_transformers, IntensityNormalization
 from kidney.experiments import BaseExperiment
 from kidney.inference.window import SlidingWindowsGenerator
 from kidney.log import get_logger
@@ -35,7 +35,8 @@ def main(params: AttributeDict):
         crop_fraction=0.5,
         crop_balanced=False,
         load_from_disk=False,
-        as_channels_first=False
+        as_channels_first=False,
+        normalization=IntensityNormalization.ImageNet
     )
     loaders = create_data_loaders(
         reader=reader,
