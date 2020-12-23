@@ -1,9 +1,11 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Tuple
 
 import gdal
 import numpy as np
+import rasterio
+from rasterio.windows import Window
 
 
 @contextmanager
@@ -49,3 +51,12 @@ def read_tiff(path: str) -> np.ndarray:
         image[i] = channel
 
     return image.transpose((1, 2, 0))
+
+
+def read_tiff_crop(path: str, box: Tuple[int, int, int, int]) -> np.ndarray:
+    x1, y1, x2, y2 = box
+    identity = rasterio.Affine(1, 0, 0, 0, 1, 0)
+    with rasterio.open(path, transform=identity) as dataset:
+        window = Window.from_slices((y1, y2), (x1, x2))
+        crop = dataset.read([1, 2, 3], window=window)
+    return crop

@@ -1,3 +1,4 @@
+import warnings
 import wandb
 
 
@@ -6,3 +7,4 @@ def noop(*args, **kwargs):
 
 
 setattr(wandb, 'termwarn', noop)
+setattr(warnings, 'warn', noop)

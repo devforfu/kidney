@@ -4,8 +4,20 @@ import numpy as np
 
 
 def rle_decode(encoded: str, shape: Tuple[int, int]) -> np.ndarray:
-    """Decodes an RLE-encoded string."""
+    """Decodes an RLE-encoded string.
 
+    Parameters
+    ----------
+    encoded
+        RLE mask.
+    shape
+        Mask shape in (height, width) format.
+
+    Returns
+    -------
+    mask
+        The decoded mask as 2D image of shape (height, width).
+    """
     numbers = list(map(int, encoded.split()))
     starts, runs = [np.asarray(xs) for xs in (numbers[::2], numbers[1::2])]
 
