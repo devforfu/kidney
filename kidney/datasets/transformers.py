@@ -73,6 +73,8 @@ def create_monai_crop_to_many_sigmoid_transformers(
     num_samples: int = 4,
     rotation_prob: float = 0.5,
     crop_balanced: bool = True,
+    load_from_disk: bool = True,
+    as_channels_first: bool = True,
 ) -> Transformers:
     """Created transformers with default transformation scheme from MONAI example.
 
@@ -94,6 +96,8 @@ def create_monai_crop_to_many_sigmoid_transformers(
         If True, crop sample image while keeping balance between negative and positive
         classes. Doesn't work properly in case if some samples of the dataset don't
         have segmentation mask.
+    load_from_disk
+        If True, the first step in pipeline reads training sample from disk.
 
     Returns
     -------
@@ -122,23 +126,31 @@ def create_monai_crop_to_many_sigmoid_transformers(
         )
     )
 
+    train_steps = [
+        AddChanneld(keys=mask_key),
+        ScaleIntensityd(keys=keys),
+        random_crop,
+        RandRotate90d(keys=keys, prob=rotation_prob),
+        ToTensord(keys=keys)
+    ]
+
+    valid_steps = [
+        AddChanneld(keys=mask_key),
+        ScaleIntensityd(keys=keys),
+        ToTensord(keys=keys)
+    ]
+
+    if as_channels_first:
+        train_steps.insert(0, AsChannelFirstd(keys=image_key))
+        valid_steps.insert(0, AsChannelFirstd(keys=image_key))
+
+    if load_from_disk:
+        train_steps.insert(0, LoadImaged(reader=PILReader(), keys=keys))
+        valid_steps.insert(0, LoadImaged(reader=PILReader(), keys=keys))
+
     return Transformers(
-        train=Compose([
-            LoadImaged(reader=PILReader(), keys=keys),
-            AsChannelFirstd(keys=image_key),
-            AddChanneld(keys=mask_key),
-            ScaleIntensityd(keys=keys),
-            random_crop,
-            RandRotate90d(keys=keys, prob=rotation_prob),
-            ToTensord(keys=keys)
-        ]),
-        valid=Compose([
-            LoadImaged(reader=PILReader(), keys=keys),
-            AsChannelFirstd(keys=image_key),
-            AddChanneld(keys=mask_key),
-            ScaleIntensityd(keys=keys),
-            ToTensord(keys=keys)
-        ]),
+        train=Compose(train_steps),
+        valid=Compose(valid_steps),
         test_preprocessing=ImageNormalization(),
         test_postprocessing=SigmoidOutputAsMask()
     )

@@ -11,4 +11,13 @@ from kidney.parameters import requires
     "fcn_num_classes"
 ])
 def create_fcn_model(params: AttributeDict) -> nn.Module:
-    pass
+    factory = {
+        "resnet50": fcn_resnet50,
+        "resnet101": fcn_resnet101
+    }[params.fcn_arch]
+    model = factory(
+        pretrained=params.fcn_pretrained,
+        progress=False,
+        num_classes=params.fcn_num_classes
+    )
+    return model

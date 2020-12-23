@@ -1,3 +1,4 @@
+from abc import ABC
 from collections import defaultdict
 from os.path import join
 from typing import Optional, Dict, Callable, List, Any

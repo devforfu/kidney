@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Optional
 
 import numpy as np
 import rasterio
@@ -35,10 +35,14 @@ def sliding_window_boxes(
 class SlidingWindowsGenerator:
     window_size: int
     overlap: int
+    limit: Optional[int] = None
 
     def generate(self, filename: str) -> Tuple[np.ndarray, Tuple[int, int]]:
         identity = rasterio.Affine(1, 0, 0, 0, 1, 0)
         with rasterio.open(filename, transform=identity) as dataset:
             height, width = shape = dataset.shape
         boxes = sliding_window_boxes(width, height, self.window_size, self.overlap)
+        if self.limit is not None:
+            subset = np.random.choice(np.arange(boxes.shape[0]), self.limit, replace=False)
+            boxes = boxes[subset]
         return boxes, shape
