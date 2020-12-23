@@ -2,7 +2,7 @@
 import os
 from argparse import ArgumentParser, Namespace
 from functools import partial
-from logging import getLogger, basicConfig
+from logging import basicConfig
 from os.path import join
 from typing import Dict
 
@@ -12,7 +12,6 @@ from distributed import Client
 
 from kidney.datasets.kaggle import KaggleKidneyDatasetReader, SampleType, DatasetReader
 from kidney.log import get_logger
-
 
 basicConfig()
 

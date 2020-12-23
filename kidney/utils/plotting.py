@@ -2,7 +2,6 @@ from typing import Optional, Union, Tuple, Dict, cast
 
 import numpy as np
 from matplotlib.axis import Axis
-from monai.utils import issequenceiterable
 from zeus.plotting.utils import axes
 
 from kidney.utils.image import read_masked_image, overlay

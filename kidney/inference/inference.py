@@ -1,9 +1,7 @@
 import abc
-import itertools
 from collections import Callable
 from dataclasses import dataclass
-from enum import auto, Enum
-from typing import Optional, Tuple, Dict, Any, Union, List
+from typing import Optional, Dict, Union, List
 
 import cv2 as cv
 import numpy as np
@@ -13,9 +11,8 @@ import torch
 from rasterio.windows import Window
 from zeus.torch_tools.utils import to_np
 
-from kidney.datasets.kaggle import outlier, get_reader
-from kidney.parameters import get_relevant_params
-from kidney.utils.image import scale_intensity_tensor, channels_first, channels_last
+from kidney.datasets.kaggle import outlier, DatasetReader, SampleType
+from kidney.utils.image import channels_first, channels_last
 
 
 class InferenceAlgorithm:
@@ -23,6 +20,41 @@ class InferenceAlgorithm:
     @abc.abstractmethod
     def predict_from_file(self, filename: str) -> np.ndarray:
         pass
+
+    def predict_from_reader(
+        self,
+        reader: DatasetReader,
+        sample_type: SampleType,
+        sample_path_key: str = "tiff",
+        encoder: Optional[Callable] = None
+    ) -> List[Dict]:
+        """Runs predictions dataset.
+
+        Parameters
+        ----------
+        reader
+            Extracts samples from storage.
+        sample_type
+            Predict on selected sample type only.
+        sample_path_key
+            Sample meta-information key with path to the sample.
+        encoder
+            If provided, a function applied to the generated prediction.
+
+        Returns
+        -------
+        predictions
+            The list of dictionaries with predictions and their IDs.
+
+        """
+        predictions = []
+        for key in reader.get_keys(sample_type):
+            meta = reader.fetch_meta(key)
+            predicted = self.predict_from_file(meta[sample_path_key])
+            if encoder is not None:
+                predicted = encoder(predicted)
+            predictions.append({"id": key, "predicted": predicted})
+        return predictions
 
 
 @dataclass

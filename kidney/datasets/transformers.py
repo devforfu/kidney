@@ -1,6 +1,8 @@
+import abc
 from dataclasses import dataclass
-from typing import Union, Tuple
+from typing import Union, Tuple, Callable, Dict
 
+import torch
 from monai.data import PILReader
 from monai.transforms import (
     Compose, RandCropByPosNegLabeld, RandSpatialCropSamplesd,
@@ -8,15 +10,62 @@ from monai.transforms import (
     Activations, AsDiscrete, AsChannelFirstd, AddChanneld
 )
 
+from kidney.utils.image import scale_intensity_tensor
+
+
+class InputPreprocessor:
+
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        return self.prepare(tensor)
+
+    @abc.abstractmethod
+    def prepare(self, tensor: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError()
+
+
+class OutputPostprocessor:
+
+    def __call__(self, output: Dict) -> Dict:
+        return self.prepare(output)
+
+    @abc.abstractmethod
+    def prepare(self, output: Dict) -> Dict:
+        raise NotImplementedError()
+
+
+class ImageNormalization(InputPreprocessor):
+    """Converts input image into 0-1 normalized tensor."""
+
+    def prepare(self, tensor: torch.Tensor) -> torch.Tensor:
+        tensor = torch.as_tensor(tensor)
+        tensor = tensor.float()
+        tensor = scale_intensity_tensor(tensor)
+        return tensor
+
+
+class SigmoidOutputAsMask(OutputPostprocessor):
+
+    def __init__(self):
+        self.as_discrete = Compose([
+            Activations(sigmoid=True),
+            AsDiscrete(threshold_values=True)
+        ])
+
+    def prepare(self, output: Dict) -> Dict:
+        transformed = self.as_discrete(output["outputs"])
+        output.update({"outputs": transformed.squeezed()})
+        return output
+
 
 @dataclass
 class Transformers:
-    train: Compose
-    valid: Compose
-    post: Compose
+    train: Callable
+    valid: Callable
+    test_preprocessing: InputPreprocessor
+    test_postprocessing: OutputPostprocessor
 
 
-def create_transformers_crop_to_many(
+def create_monai_crop_to_many_sigmoid_transformers(
     image_key: str,
     mask_key: str,
     image_size: Union[int, Tuple[int, int]],
@@ -90,8 +139,6 @@ def create_transformers_crop_to_many(
             ScaleIntensityd(keys=keys),
             ToTensord(keys=keys)
         ]),
-        post=Compose([
-            Activations(sigmoid=True),
-            AsDiscrete(threshold_values=True)
-        ])
+        test_preprocessing=ImageNormalization(),
+        test_postprocessing=SigmoidOutputAsMask()
     )

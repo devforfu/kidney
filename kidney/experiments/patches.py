@@ -10,7 +10,7 @@ from kidney.cli.basic import basic_parser
 from kidney.cli.lightning import make_trainer_init_params
 from kidney.cli.models import add_unet_args
 from kidney.datasets.patches import read_segmentation_data_from_json, create_data_loaders
-from kidney.datasets.transformers import create_transformers_crop_to_many
+from kidney.datasets.transformers import create_monai_crop_to_many_sigmoid_transformers
 from kidney.experiments import BaseExperiment, save_experiment_info
 from kidney.log import get_logger
 from kidney.models.unet import create_unet_model
@@ -32,7 +32,7 @@ def main(params: AttributeDict):
 
     logger.info("create transformers")
     h, w, *_ = random_image_shape(params.dataset)
-    transformers = create_transformers_crop_to_many(
+    transformers = create_monai_crop_to_many_sigmoid_transformers(
         image_key=data.image_key,
         mask_key=data.mask_key,
         image_size=(h, w),

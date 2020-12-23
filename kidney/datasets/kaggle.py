@@ -110,7 +110,7 @@ def outlier(image: np.ndarray, bin_size: int = 4, threshold: int = 1000) -> bool
     return count < threshold
 
 
-def get_reader():
+def get_reader() -> KaggleKidneyDatasetReader:
     try:
         root = os.environ['DATASET_ROOT']
     except KeyError:

@@ -48,4 +48,4 @@ def read_tiff(path: str) -> np.ndarray:
         channel = band.ReadAsArray()
         image[i] = channel
 
-    return image.transpose(1, 2, 0)
+    return image.transpose((1, 2, 0))
