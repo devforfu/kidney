@@ -1,7 +1,5 @@
 from typing import List, Dict, Tuple
 
-import rasterio
-from rasterio.windows import Window
 from torch.utils.data import Dataset
 
 from kidney.datasets.kaggle import DatasetReader, SampleType, get_reader, outlier
