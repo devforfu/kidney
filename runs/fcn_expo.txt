@@ -1,3 +1,4 @@
+--dataset=online
 --loss_name=dice_sigmoid
 --learning_rate=0.001
 --batch_size=4

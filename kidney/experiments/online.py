@@ -1,3 +1,4 @@
+from logging import basicConfig
 from typing import Dict
 
 import pytorch_lightning as pl
@@ -16,6 +17,8 @@ from kidney.experiments import BaseExperiment
 from kidney.inference.window import SlidingWindowsGenerator
 from kidney.log import get_logger
 from kidney.models.fcn import create_fcn_model
+
+basicConfig()
 
 
 @entry_point(
