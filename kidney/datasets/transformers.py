@@ -12,6 +12,7 @@ from monai.transforms import (
     Activations, AsDiscrete, AsChannelFirstd, AddChanneld,
     NormalizeIntensityd, MapTransform, KeysCollection
 )
+from zeus.core import AutoName
 
 from kidney.utils.image import scale_intensity_tensor
 
@@ -68,9 +69,13 @@ class Transformers:
     test_postprocessing: Callable
 
 
-class IntensityNormalization(Enum):
+class IntensityNormalization(AutoName):
     ZeroOne = auto()
     ImageNet = auto()
+
+    @classmethod
+    def parse(cls, value: str):
+        return IntensityNormalization(value)
 
 
 def create_monai_crop_to_many_sigmoid_transformers(

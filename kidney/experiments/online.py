@@ -8,10 +8,10 @@ from zeus.core.random import super_seed
 from kidney.cli import entry_point, default_args
 from kidney.cli.basic import basic_parser
 from kidney.cli.lightning import make_trainer_init_params
-from kidney.cli.models import add_fcn_args
+from kidney.cli.models import add_fcn_args, add_model_args, add_monai_args, add_sliding_window_args
 from kidney.datasets.kaggle import get_reader
 from kidney.datasets.online import create_data_loaders
-from kidney.datasets.transformers import create_monai_crop_to_many_sigmoid_transformers, IntensityNormalization
+from kidney.datasets.transformers import create_monai_crop_to_many_sigmoid_transformers
 from kidney.experiments import BaseExperiment
 from kidney.inference.window import SlidingWindowsGenerator
 from kidney.log import get_logger
@@ -20,35 +20,49 @@ from kidney.models.fcn import create_fcn_model
 
 @entry_point(
     base_parser_factory=lambda: basic_parser(__file__),
-    extensions=default_args() + [add_fcn_args]
+    extensions=default_args() + [
+        add_fcn_args,
+        add_model_args,
+        add_monai_args,
+        add_sliding_window_args
+    ]
 )
 def main(params: AttributeDict):
     super_seed(params.seed)
 
     logger = get_logger(__file__)
 
+    logger.info("creating dataset reader")
     reader = get_reader()
-    transforms = create_monai_crop_to_many_sigmoid_transformers(
-        image_key="img",
-        mask_key="seg",
-        image_size=1024,
-        crop_fraction=0.5,
-        crop_balanced=False,
-        load_from_disk=False,
-        as_channels_first=False,
-        normalization=IntensityNormalization.ImageNet
+
+    logger.info("creating transformers")
+    assert 0 < params.monai_crop_fraction < 1
+
+    transformers = create_monai_crop_to_many_sigmoid_transformers(
+        image_key=params.monai_image_key,
+        mask_key=params.monai_mask_key,
+        image_size=params.model_input_size,
+        crop_fraction=params.monai_crop_fraction,
+        crop_balanced=params.monai_crop_balanced,
+        num_samples=params.monai_crop_num_samples,
+        rotation_prob=params.monai_rotation_prob,
+        load_from_disk=params.monai_load_from_disk,
+        as_channels_first=params.monai_channels_first,
+        normalization=params.monai_normalization,
     )
+
+    logger.info("creating data loader")
     loaders = create_data_loaders(
         reader=reader,
-        transformers=transforms,
+        transformers=transformers,
         sliding_window_generator=SlidingWindowsGenerator(
-            window_size=1024,
-            overlap=32,
+            window_size=params.model_input_size,
+            overlap=params.sliding_window_overlap,
             limit=10 if params.dataset == "debug" else None
         ),
         num_workers=params.num_workers,
         batch_size=params.batch_size,
-        outliers_threshold=10000
+        outliers_threshold=params.sliding_window_outliers_threshold
     )
 
     trainer = pl.Trainer(**make_trainer_init_params(params))
@@ -56,6 +70,8 @@ def main(params: AttributeDict):
     trainer.fit(model=FCNExperiment(params),
                 train_dataloader=loaders["train"],
                 val_dataloaders=loaders["valid"])
+
+    return trainer, {"params": params, "transformers": transformers}
 
 
 class FCNExperiment(BaseExperiment):

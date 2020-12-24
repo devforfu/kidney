@@ -114,7 +114,7 @@ def get_reader() -> KaggleKidneyDatasetReader:
     try:
         root = os.environ['DATASET_ROOT']
     except KeyError:
-        raise RuntimeError('dataset root is not defined')
+        raise RuntimeError('DATASET_ROOT is not defined')
     return KaggleKidneyDatasetReader(root)
 
 

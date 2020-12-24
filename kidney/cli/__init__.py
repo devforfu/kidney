@@ -3,7 +3,10 @@ from functools import reduce, wraps
 from typing import Callable, Optional, List
 
 import pytorch_lightning as pl
+from pytorch_lightning.utilities import AttributeDict
 
+from kidney.experiments import save_experiment_info
+from kidney.log import get_logger
 from kidney.parameters import as_attribute_dict
 
 
@@ -63,7 +66,16 @@ def entry_point(base_parser_factory: Callable, extensions: Optional[List[Callabl
 
         @wraps(func)
         def wrapped():
-            func(as_attribute_dict(parser.parse_args()))
+            result = func(as_attribute_dict(parser.parse_args()))
+            if result is not None:
+                trainer, info = result
+                logger = get_logger(__file__)
+                logger.info("saving experiment parameters into checkpoints folder")
+                params_dir = save_experiment_info(trainer, info)
+                if params_dir is None:
+                    logger.warning("checkpoints dir is not found; will not save info")
+                else:
+                    logger.info("experiment artifacts saved into the folder: %s", params_dir)
 
         return wrapped
 
