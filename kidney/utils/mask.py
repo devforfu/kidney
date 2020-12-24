@@ -1,5 +1,6 @@
 from typing import Tuple, Optional
 
+import numba
 import numpy as np
 
 
@@ -65,10 +66,37 @@ def rle_encode(mask: np.ndarray, threshold: Optional[float] = None) -> str:
     return " ".join([str(x) for x in encoded.astype(int)])
 
 
+@numba.njit()
+def rle_numba(pixels):
+    size = len(pixels)
+    points = []
+    if pixels[0] == 1:
+        points.append(0)
+    flag = True
+    for i in range(1, size):
+        if pixels[i] != pixels[i-1]:
+            if flag:
+                points.append(i+1)
+                flag = False
+            else:
+                points.append(i+1 - points[-1])
+                flag = True
+    if pixels[-1] == 1:
+        points.append(size-points[-1]+1)
+    return points
+
+
+def rle_numba_encode(image):
+    pixels = image.flatten(order="F")
+    points = rle_numba(pixels)
+    return " ".join(str(x) for x in points)
+
+
 def main():
     mask = '9 1 16 4 24 1 39 1 46 1 51 5'
     decoded = rle_decode(mask, (7, 9))
-    encoded = rle_encode(decoded)
+    # encoded = rle_encode(decoded)
+    encoded = rle_numba_encode(decoded)
     assert mask == encoded
 
 

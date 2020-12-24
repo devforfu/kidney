@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 import numpy as np
 import rasterio

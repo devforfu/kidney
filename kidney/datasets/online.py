@@ -9,7 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 from kidney.datasets.kaggle import DatasetReader, SampleType, get_reader, outlier
 from kidney.datasets.transformers import Transformers
 from kidney.inference.window import SlidingWindowsGenerator
-from kidney.utils.mask import rle_decode
+from kidney.utils.mask import rle_decode, rle_encode
 from kidney.utils.tiff import read_tiff_crop
 
 
@@ -44,14 +44,17 @@ class OnlineCroppingDataset(Dataset):
                     if outlier(crop, threshold=threshold):
                         continue
                 mask_crop = mask[y1:y2, x1:x2]
-                generated.append((filename, mask_crop, box))
+                encoded = rle_encode(mask_crop)
+                generated.append((filename, encoded, box))
         return generated
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, item: int) -> Dict:
-        filename, mask_crop, box = self.samples[item]
+        filename, encoded, box = self.samples[item]
+        x1, y1, x2, y2 = box
+        mask_crop = rle_decode(encoded, shape=(y2 - y1, x2 - x1))
         image = read_tiff_crop(filename, box)
         sample = {"img": image.astype(np.float32), "seg": mask_crop.astype(np.float32)}
         return sample if self.transform is None else self.transform(sample)
