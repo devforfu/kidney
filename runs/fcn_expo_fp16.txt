@@ -1,18 +1,19 @@
---dataset=debug
+--dataset=/mnt/fast/data/kidney_boxes_1024
 --loss_name=dice_sigmoid
 --learning_rate=0.001
 --batch_size=4
 --num_workers=12
---max_epochs=2
---gpus=1
---model_input_size=512
+--gpus=0
+--precision=16
+--model_input_size=1024
 --monai_image_key=img
 --monai_mask_key=seg
---monai_crop_fraction=0.75
+--monai_crop_fraction=0.375
 --monai_crop_num_samples=4
+--monai_pos_fraction=2.0
+--monai_neg_fraction=1.0
 --monai_normalization=ImageNet
---sliding_window_overlap=32
---sliding_window_outliers_threshold=10000
+--monai_crop_balanced
 --wandb_logging_enabled
 --checkpoints_enabled
 --checkpoints_metric=avg_val_loss
@@ -21,4 +22,4 @@
 --early_stopping_patience=10
 --scheduler_name=expo
 --scheduler_interval=epoch
---scheduler_config={"scheduler_gamma": 0.9}
+--scheduler_config={"scheduler_gamma": 0.85}
