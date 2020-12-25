@@ -86,6 +86,8 @@ def create_monai_crop_to_many_sigmoid_transformers(
     num_samples: int = 4,
     rotation_prob: float = 0.5,
     crop_balanced: bool = True,
+    pos_fraction: float = 1.0,
+    neg_fraction: float = 1.0,
     load_from_disk: bool = True,
     as_channels_first: bool = True,
     normalization: IntensityNormalization = IntensityNormalization.ZeroOne,
@@ -130,7 +132,8 @@ def create_monai_crop_to_many_sigmoid_transformers(
         RandCropByPosNegLabeld(
             keys=keys, label_key=mask_key,
             spatial_size=spatial_size,
-            pos=1, neg=1, num_samples=num_samples
+            pos=pos_fraction, neg=neg_fraction,
+            num_samples=num_samples
         )
         if crop_balanced
         else

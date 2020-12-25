@@ -11,7 +11,7 @@ from kidney.cli.basic import basic_parser
 from kidney.cli.lightning import make_trainer_init_params
 from kidney.cli.models import add_fcn_args, add_model_args, add_monai_args, add_sliding_window_args
 from kidney.datasets.kaggle import get_reader
-from kidney.datasets.online import create_data_loaders
+from kidney.datasets.online import create_data_loaders, read_boxes
 from kidney.datasets.transformers import create_monai_crop_to_many_sigmoid_transformers
 from kidney.experiments import BaseExperiment
 from kidney.inference.window import SlidingWindowsGenerator
@@ -24,8 +24,7 @@ from kidney.models.fcn import create_fcn_model
     extensions=default_args() + [
         add_fcn_args,
         add_model_args,
-        add_monai_args,
-        add_sliding_window_args
+        add_monai_args
     ]
 )
 def main(params: AttributeDict):
@@ -50,20 +49,17 @@ def main(params: AttributeDict):
         load_from_disk=params.monai_load_from_disk,
         as_channels_first=params.monai_channels_first,
         normalization=params.monai_normalization,
+        pos_fraction=params.monai_pos_fraction,
+        neg_fraction=params.monai_neg_fraction
     )
 
     logger.info("creating data loader")
     loaders = create_data_loaders(
         reader=reader,
         transformers=transformers,
-        sliding_window_generator=SlidingWindowsGenerator(
-            window_size=params.model_input_size,
-            overlap=params.sliding_window_overlap,
-            limit=10 if params.dataset == "debug" else None
-        ),
+        samples=read_boxes(params.dataset),
         num_workers=params.num_workers,
         batch_size=params.batch_size,
-        outliers_threshold=params.sliding_window_outliers_threshold
     )
 
     trainer = pl.Trainer(**make_trainer_init_params(params))

@@ -1,10 +1,12 @@
 import random
 from collections import OrderedDict
+from itertools import chain
 from typing import List, Dict, Tuple, Callable, Optional
 
 import numpy as np
 from monai.data import list_data_collate
 from torch.utils.data import Dataset, DataLoader
+from zeus.utils import list_files
 
 from kidney.datasets.kaggle import DatasetReader, SampleType, get_reader, outlier
 from kidney.datasets.transformers import Transformers
@@ -19,43 +21,23 @@ class OnlineCroppingDataset(Dataset):
         self,
         keys: List[str],
         reader: DatasetReader,
-        sliding_windows_generator: SlidingWindowsGenerator,
-        outliers_excluded: bool = True,
-        outliers_threshold: int = 1000,
+        samples: List[Dict],
         transform: Optional[Callable] = None
     ):
         self.keys = keys
         self.reader = reader
-        self.sliding_windows_generator = sliding_windows_generator
-        self.samples = self._generate_samples(outliers_excluded, outliers_threshold)
+        self.samples = samples
         self.transform = transform
-
-    def _generate_samples(self, exclude_outliers: bool, threshold: int) -> List[Tuple]:
-        generated = []
-        for key in self.keys:
-            meta = self.reader.fetch_meta(key)
-            filename = meta["tiff"]
-            boxes, (h, w) = self.sliding_windows_generator.generate(filename)
-            mask = rle_decode(meta["mask"], shape=(h, w))
-            for box in boxes:
-                x1, y1, x2, y2 = box
-                if exclude_outliers:
-                    crop = read_tiff_crop(filename, box)
-                    if outlier(crop, threshold=threshold):
-                        continue
-                mask_crop = mask[y1:y2, x1:x2]
-                encoded = rle_encode(mask_crop)
-                generated.append((filename, encoded, box))
-        return generated
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, item: int) -> Dict:
-        filename, encoded, box = self.samples[item]
-        x1, y1, x2, y2 = box
-        mask_crop = rle_decode(encoded, shape=(y2 - y1, x2 - x1))
-        image = read_tiff_crop(filename, box)
+        sample = self.samples[item]
+        meta = self.reader.fetch_meta(sample["key"])
+        x1, y1, x2, y2 = box = sample["box"]
+        mask_crop = rle_decode(sample["rle_encoded"], shape=(y2 - y1, x2 - x1))
+        image = read_tiff_crop(meta["tiff"], box)
         sample = {"img": image.astype(np.float32), "seg": mask_crop.astype(np.float32)}
         return sample if self.transform is None else self.transform(sample)
 
@@ -63,11 +45,10 @@ class OnlineCroppingDataset(Dataset):
 def create_data_loaders(
     reader: DatasetReader,
     transformers: Transformers,
-    sliding_window_generator: SlidingWindowsGenerator,
+    samples: List[Dict],
     train_keys: Optional[List[str]] = None,
     num_workers: int = 0,
     batch_size: int = 4,
-    outliers_threshold: Optional[int] = None
 ) -> OrderedDict:
 
     keys = reader.get_keys(SampleType.Labeled)
@@ -82,14 +63,13 @@ def create_data_loaders(
         ("train", train_keys),
         ("valid", valid_keys)
     ):
+        samples_subset = [sample for sample in samples if sample["key"] in keys]
         loaders[subset] = DataLoader(
             dataset=OnlineCroppingDataset(
                 keys=keys,
                 reader=reader,
-                sliding_windows_generator=sliding_window_generator,
-                outliers_excluded=outliers_threshold is not None,
-                outliers_threshold=outliers_threshold,
-                transform=getattr(transformers, subset, None)
+                transform=getattr(transformers, subset, None),
+                samples=samples_subset,
             ),
             batch_size=batch_size,
             shuffle=subset == "train",
@@ -99,17 +79,8 @@ def create_data_loaders(
     return loaders
 
 
-def main():
-    reader = get_reader()
-    keys = reader.get_keys(SampleType.Labeled)
-    dataset = OnlineCroppingDataset(
-        [keys[0]], reader,
-        sliding_windows_generator=SlidingWindowsGenerator(1024, 32),
-        outliers_threshold=10_000
-    )
-    x = dataset[0]
-    print(x)
+def read_boxes(folder: str) -> List[Dict]:
+    """Reads pre-generated sliding window boxes from JSONL files."""
 
-
-if __name__ == '__main__':
-    main()
+    import srsly
+    return list(chain(*[srsly.read_jsonl(fn) for fn in list_files(folder)]))

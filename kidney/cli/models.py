@@ -27,6 +27,8 @@ def add_monai_args(parser: ArgumentParser) -> ArgumentParser:
     parser.add_argument("--monai_crop_balanced", action="store_true")
     parser.add_argument("--monai_channels_first", action="store_true")
     parser.add_argument("--monai_load_from_disk", action="store_true")
+    parser.add_argument("--monai_pos_fraction", type=float, default=1.0)
+    parser.add_argument("--monai_neg_fraction", type=float, default=1.0)
     parser.add_argument("--monai_normalization",
                         type=IntensityNormalization,
                         default=IntensityNormalization.ImageNet)
