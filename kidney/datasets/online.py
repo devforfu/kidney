@@ -1,17 +1,16 @@
 import random
 from collections import OrderedDict
 from itertools import chain
-from typing import List, Dict, Tuple, Callable, Optional
+from typing import List, Dict, Callable, Optional
 
 import numpy as np
 from monai.data import list_data_collate
 from torch.utils.data import Dataset, DataLoader
 from zeus.utils import list_files
 
-from kidney.datasets.kaggle import DatasetReader, SampleType, get_reader, outlier
+from kidney.datasets.kaggle import DatasetReader, SampleType
 from kidney.datasets.transformers import Transformers
-from kidney.inference.window import SlidingWindowsGenerator
-from kidney.utils.mask import rle_decode, rle_encode
+from kidney.utils.mask import rle_decode
 from kidney.utils.tiff import read_tiff_crop
 
 
