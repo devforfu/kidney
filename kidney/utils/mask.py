@@ -52,6 +52,7 @@ def rle_encode(mask: np.ndarray, threshold: Optional[float] = None) -> str:
         pixels = np.where(pixels > threshold, 1, 0)
 
     pixels = pixels.astype(np.uint8)
+    pixels = np.concatenate([[0], pixels, [0]])
 
     mask_start = (pixels[:-1] == 0) & (pixels[1:] == 1)
     mask_end = (pixels[:-1] == 1) & (pixels[1:] == 0)

@@ -15,7 +15,7 @@ from kidney.inference.window import SlidingWindowsGenerator
 from kidney.log import get_logger
 # from kidney.utils import rle
 from kidney.utils import rle
-from kidney.utils.mask import rle_decode, rle_numba_encode
+from kidney.utils.mask import rle_decode, rle_numba_encode, rle_encode
 from kidney.utils.tiff import read_tiff, read_tiff_crop
 
 basicConfig()
@@ -76,7 +76,7 @@ def generate_boxes(
     logger.info(f"reading TIFF file: {filename}")
 
     boxes, (h, w) = generator.generate(filename)
-    mask = rle.decode(meta["mask"], shape=(h, w))
+    mask = rle_decode(meta["mask"], shape=(h, w))
 
     generated = []
     for box in boxes:
@@ -89,7 +89,7 @@ def generate_boxes(
             crop = read_tiff_crop(filename, box)
             if outlier(crop, threshold=histogram_threshold):
                 continue
-        encoded = rle.encode(mask_crop)
+        encoded = rle_encode(mask_crop)
         record = {"key": key,
                   "rle_encoded": encoded,
                   "width": x2 - x1,
