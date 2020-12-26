@@ -10,7 +10,7 @@ from zeus.utils import list_files
 
 from kidney.datasets.kaggle import DatasetReader, SampleType
 from kidney.datasets.transformers import Transformers
-from kidney.utils.mask import rle_decode
+from kidney.utils import rle
 from kidney.utils.tiff import read_tiff_crop
 
 
@@ -35,7 +35,7 @@ class OnlineCroppingDataset(Dataset):
         sample = self.samples[item]
         meta = self.reader.fetch_meta(sample["key"])
         x1, y1, x2, y2 = box = sample["box"]
-        mask_crop = rle_decode(sample["rle_encoded"], shape=(y2 - y1, x2 - x1))
+        mask_crop = rle.decode(sample["rle_encoded"], shape=(y2 - y1, x2 - x1))
         image = read_tiff_crop(meta["tiff"], box)
         sample = {"img": image.astype(np.float32), "seg": mask_crop.astype(np.float32)}
         return sample if self.transform is None else self.transform(sample)

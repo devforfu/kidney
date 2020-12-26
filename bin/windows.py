@@ -10,10 +10,13 @@ import srsly
 from distributed import Client
 
 from kidney.datasets.kaggle import get_reader, SampleType, DatasetReader, outlier
+from kidney.datasets.online import read_boxes
 from kidney.inference.window import SlidingWindowsGenerator
 from kidney.log import get_logger
-from kidney.utils.mask import rle_decode, rle_encode, rle_numba_encode
-from kidney.utils.tiff import read_tiff_crop
+# from kidney.utils import rle
+from kidney.utils import rle
+from kidney.utils.mask import rle_decode, rle_numba_encode
+from kidney.utils.tiff import read_tiff, read_tiff_crop
 
 basicConfig()
 
@@ -35,14 +38,28 @@ def main(args: argparse.Namespace):
                          mask_threshold=args.mask_threshold))
             .map(partial(save_outputs, output_dir=args.output_dir))
         )
-        filenames = bag.compute()
+        filenames = bag.compute(scheduler=args.dask_scheduler)
     finally:
         client.close()
 
     logger = get_logger(__name__)
     for filename in filenames:
         logger.info(filename)
+
     logger.info(f"Total number of saved files: {len(filenames)}")
+    logger.info(f"Total number of boxes: {len(read_boxes(args.output_dir))}")
+
+
+def full_column(arr):
+    col_sums = arr.sum(axis=0)
+    height = arr.shape[0]
+    return (col_sums == height).any()
+
+
+def full_row(arr):
+    row_sums = arr.sum(axis=1)
+    width = arr.shape[1]
+    return (row_sums == width).any()
 
 
 def generate_boxes(
@@ -59,8 +76,7 @@ def generate_boxes(
     logger.info(f"reading TIFF file: {filename}")
 
     boxes, (h, w) = generator.generate(filename)
-    mask = rle_decode(meta["mask"], shape=(h, w))
-    logger.info(f"number of boxes: {len(boxes)}")
+    mask = rle.decode(meta["mask"], shape=(h, w))
 
     generated = []
     for box in boxes:
@@ -73,7 +89,7 @@ def generate_boxes(
             crop = read_tiff_crop(filename, box)
             if outlier(crop, threshold=histogram_threshold):
                 continue
-        encoded = rle_numba_encode(mask_crop)
+        encoded = rle.encode(mask_crop)
         record = {"key": key,
                   "rle_encoded": encoded,
                   "width": x2 - x1,
@@ -88,7 +104,7 @@ def save_outputs(records: List[Dict], output_dir: str):
     os.makedirs(output_dir, exist_ok=True)
     filename = os.path.join(output_dir, f"{uuid.uuid4()}.jsonl")
     srsly.write_jsonl(filename, records)
-    get_logger(__name__).info(f"saved boxes: {filename}")
+    get_logger(__name__).info(f"saved {len(records)} boxes: {filename}")
     return filename
 
 
@@ -96,8 +112,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--window-size", type=int, default=1024)
     parser.add_argument("--overlap", type=int, default=32)
-    parser.add_argument("--histogram-threshold", type=int, default=1000)
-    parser.add_argument("--mask-threshold", type=int, default=100)
+    parser.add_argument("--histogram-threshold", type=int, default=None)
+    parser.add_argument("--mask-threshold", type=int, default=None)
+    parser.add_argument("--dask-scheduler", default=None)
     parser.add_argument("--output-dir", required=True)
     return parser.parse_args()
 
