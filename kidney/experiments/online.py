@@ -13,7 +13,7 @@ from kidney.cli.models import add_fcn_args, add_model_args, add_monai_args, add_
 from kidney.datasets.kaggle import get_reader
 from kidney.datasets.online import create_data_loaders, read_boxes
 from kidney.datasets.transformers import create_monai_crop_to_many_sigmoid_transformers
-from kidney.experiments import BaseExperiment
+from kidney.experiments import BaseExperiment, save_experiment_info
 from kidney.inference.window import SlidingWindowsGenerator
 from kidney.log import get_logger
 from kidney.models.fcn import create_fcn_model
@@ -64,11 +64,11 @@ def main(params: AttributeDict):
 
     trainer = pl.Trainer(**make_trainer_init_params(params))
 
+    save_experiment_info(trainer, {"params": params, "transformers": transformers})
+
     trainer.fit(model=FCNExperiment(params),
                 train_dataloader=loaders["train"],
                 val_dataloaders=loaders["valid"])
-
-    return trainer, {"params": params, "transformers": transformers}
 
 
 class FCNExperiment(BaseExperiment):

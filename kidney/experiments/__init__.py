@@ -1,3 +1,4 @@
+import os
 from abc import ABC
 from collections import defaultdict
 from os.path import join
@@ -193,5 +194,6 @@ def save_experiment_info(
     except ValueError:
         return None
     dir_path = checkpoints.dirpath
+    os.makedirs(dir_path, exist_ok=True)
     torch.save(info, join(dir_path, f"{filename}.pth"))
     return dir_path
