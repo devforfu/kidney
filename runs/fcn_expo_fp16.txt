@@ -5,13 +5,11 @@
 --num_workers=12
 --gpus=0
 --precision=16
---model_input_size=1024
+--model_input_size=512
 --monai_image_key=img
 --monai_mask_key=seg
---monai_crop_fraction=0.375
+--monai_crop_fraction=0.75
 --monai_crop_num_samples=4
---monai_pos_fraction=2.0
---monai_neg_fraction=1.0
 --monai_normalization=ImageNet
 --monai_crop_balanced
 --wandb_logging_enabled
@@ -22,4 +20,4 @@
 --early_stopping_patience=10
 --scheduler_name=expo
 --scheduler_interval=epoch
---scheduler_config={"scheduler_gamma": 0.85}
+--scheduler_config={"scheduler_gamma": 0.9}
