@@ -112,8 +112,16 @@ def create_monai_crop_to_many_sigmoid_transformers(
         If True, crop sample image while keeping balance between negative and positive
         classes. Doesn't work properly in case if some samples of the dataset don't
         have segmentation mask.
+    pos_fraction
+        Fraction of pixels with segmentation mask.
+    neg_fraction
+        Fraction of pixels without masked object.
     load_from_disk
         If True, the first step in pipeline reads training sample from disk.
+    as_channels_first
+        If True, switch the first and the last image channels.
+    normalization
+        Image normalization method.
 
     Returns
     -------
