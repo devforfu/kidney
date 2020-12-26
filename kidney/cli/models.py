@@ -31,7 +31,7 @@ def add_monai_args(parser: ArgumentParser) -> ArgumentParser:
     parser.add_argument("--monai_neg_fraction", type=float, default=1.0)
     parser.add_argument("--monai_normalization",
                         type=IntensityNormalization,
-                        default=IntensityNormalization.ImageNet)
+                        default=IntensityNormalization.TorchvisionSegmentation)
     return parser
 
 

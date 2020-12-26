@@ -19,12 +19,11 @@ class OnlineCroppingDataset(Dataset):
 
     def __init__(
         self,
-        keys: List[str],
         reader: DatasetReader,
         samples: List[Dict],
         transform: Optional[Callable] = None
     ):
-        self.keys = keys
+        super().__init__()
         self.reader = reader
         self.samples = samples
         self.transform = transform
@@ -66,7 +65,6 @@ def create_data_loaders(
         samples_subset = [sample for sample in samples if sample["key"] in keys]
         loaders[subset] = DataLoader(
             dataset=OnlineCroppingDataset(
-                keys=keys,
                 reader=reader,
                 transform=getattr(transformers, subset, None),
                 samples=samples_subset,

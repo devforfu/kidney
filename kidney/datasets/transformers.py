@@ -3,8 +3,10 @@ from dataclasses import dataclass
 from enum import auto, Enum
 from typing import Union, Tuple, Callable, Dict, Mapping, Hashable
 
+import albumentations as A
 import torch
 import numpy as np
+from albumentations.pytorch import ToTensorV2
 from monai.data import PILReader
 from monai.transforms import (
     Compose, RandCropByPosNegLabeld, RandSpatialCropSamplesd,
@@ -14,7 +16,7 @@ from monai.transforms import (
 )
 from zeus.core import AutoName
 
-from kidney.utils.image import scale_intensity_tensor
+from kidney.utils.image import scale_intensity_tensor, channels_last
 
 
 class InputPreprocessor:
@@ -70,12 +72,18 @@ class Transformers:
 
 
 class IntensityNormalization(AutoName):
+    NoOp = auto()
     ZeroOne = auto()
-    ImageNet = auto()
+    TorchvisionSegmentation = auto()
 
     @classmethod
     def parse(cls, value: str):
         return IntensityNormalization(value)
+
+    def get_stats(self):
+        if self == IntensityNormalization.TorchvisionSegmentation:
+            return (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
+        return None, None
 
 
 def create_monai_crop_to_many_sigmoid_transformers(
@@ -151,18 +159,20 @@ def create_monai_crop_to_many_sigmoid_transformers(
         )
     )
 
+    mean, std = normalization.get_stats()
     intensity_normalization = (
         [ScaleIntensityd(keys=image_key)]
-        if normalization == IntensityNormalization.ZeroOne
-        else
+        if normalization == IntensityNormalization.ZeroOne else
         [
             ScaleIntensityd(keys=image_key),
             NormalizeGlobalMeanStd(
                 keys=image_key,
-                mean=np.array([0.625, 0.448, 0.688]).reshape((3, 1, 1)).astype(np.float32),
-                std=np.array([0.131, 0.177, 0.101]).reshape((3, 1, 1)).astype(np.float32)
+                mean=np.array(list(mean)).reshape((3, 1, 1)).astype(np.float32),
+                std=np.array(list(std)).reshape((3, 1, 1)).astype(np.float32)
             )
         ]
+        if normalization == IntensityNormalization.TorchvisionSegmentation else
+        []
     )
 
     train_steps = [
@@ -195,6 +205,58 @@ def create_monai_crop_to_many_sigmoid_transformers(
     )
 
 
+def create_weak_augmentation_transformers(
+    image_key: str,
+    mask_key: str,
+    image_size: int,
+    normalization: IntensityNormalization = IntensityNormalization.TorchvisionSegmentation,
+    debug: bool = False
+) -> Transformers:
+    intensity_normalization = (
+        A.Normalize(*normalization.get_stats())
+        if normalization == IntensityNormalization.TorchvisionSegmentation
+        else A.NoOp()
+    )
+
+    final_step = (
+        [A.NoOp()]
+        if debug
+        else [
+            intensity_normalization,
+            A.Lambda(name="add_channel_axis", mask=add_first_channel),
+            ToTensorV2()
+        ]
+    )
+
+    train_steps = [
+        A.Lambda(name="channels_last", image=as_channels_last),
+        A.RandomSizedCrop(min_max_height=(image_size*3//4, image_size),
+                          height=image_size,
+                          width=image_size),
+        A.VerticalFlip(p=0.5),
+        A.HorizontalFlip(p=0.5),
+        A.Rotate(limit=30, p=0.3),
+        *final_step
+    ]
+
+    valid_steps = final_step
+
+    return Transformers(
+        train=AlbuAdapter(A.Compose(train_steps), image_key, mask_key),
+        valid=AlbuAdapter(A.Compose(valid_steps), image_key, mask_key),
+        test_preprocessing=AlbuAdapter(A.Compose(valid_steps), image_key, mask_key),
+        test_postprocessing=SigmoidOutputAsMask(),
+    )
+
+
+def add_first_channel(arr: np.ndarray, **kwargs) -> np.ndarray:
+    return arr[np.newaxis]
+
+
+def as_channels_last(arr: np.ndarray, **kwargs) -> np.ndarray:
+    return channels_last(arr)
+
+
 class NormalizeGlobalMeanStd(MapTransform):
 
     def __init__(
@@ -215,3 +277,21 @@ class NormalizeGlobalMeanStd(MapTransform):
 
     def normalize(self, arr: np.ndarray) -> np.ndarray:
         return (arr - self.mean)/self.std
+
+
+@dataclass
+class AlbuAdapter:
+    callable: Callable
+    image_key: str
+    mask_key: str
+
+    def __call__(self, inputs: Dict) -> Dict:
+        output = self.callable(
+            image=inputs[self.image_key],
+            mask=inputs[self.mask_key]
+        )
+        adapted = {
+            self.image_key: output["image"],
+            self.mask_key: output["mask"]
+        }
+        return adapted
