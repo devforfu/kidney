@@ -212,8 +212,13 @@ def create_weak_augmentation_transformers(
     normalization: IntensityNormalization = IntensityNormalization.TorchvisionSegmentation,
     debug: bool = False
 ) -> Transformers:
+    mean, std = normalization.get_stats()
+
     intensity_normalization = (
-        A.Normalize(*normalization.get_stats())
+        A.Normalize(
+            mean=np.array(list(mean)).reshape((1, 1, 3)).astype(np.float32),
+            std=np.array(list(std)).reshape((1, 1, 3)).astype(np.float32)
+        )
         if normalization == IntensityNormalization.TorchvisionSegmentation
         else A.NoOp()
     )
@@ -239,7 +244,10 @@ def create_weak_augmentation_transformers(
         *final_step
     ]
 
-    valid_steps = final_step
+    valid_steps = [
+        A.Lambda(name="channels_last", image=as_channels_last),
+        *final_step
+    ]
 
     return Transformers(
         train=AlbuAdapter(A.Compose(train_steps), image_key, mask_key),
