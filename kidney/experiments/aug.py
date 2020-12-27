@@ -1,20 +1,18 @@
-from typing import Dict
+import os
 
 import pytorch_lightning as pl
-import torch.nn as nn
 from pytorch_lightning.utilities import AttributeDict
 from zeus.core.random import super_seed
 
 from kidney.cli import entry_point, default_args
 from kidney.cli.basic import basic_parser
 from kidney.cli.lightning import make_trainer_init_params
-from kidney.cli.models import add_fcn_args, add_model_args, add_monai_args
+from kidney.cli.models import add_fcn_args, add_model_args, add_aug_args
 from kidney.datasets.kaggle import get_reader
 from kidney.datasets.online import create_data_loaders, read_boxes
-from kidney.datasets.transformers import create_monai_crop_to_many_sigmoid_transformers
-from kidney.experiments import BaseExperiment, save_experiment_info, FCNExperiment
+from kidney.datasets.transformers import create_weak_augmentation_transformers
+from kidney.experiments import save_experiment_info, FCNExperiment
 from kidney.log import get_logger
-from kidney.models.fcn import create_fcn_model
 
 
 @entry_point(
@@ -22,33 +20,24 @@ from kidney.models.fcn import create_fcn_model
     extensions=default_args() + [
         add_fcn_args,
         add_model_args,
-        add_monai_args
+        add_aug_args,
     ]
 )
 def main(params: AttributeDict):
     super_seed(params.seed)
 
     logger = get_logger(__file__)
+    input_image_size = get_dataset_input_size(params.dataset)
 
     logger.info("creating dataset reader")
     reader = get_reader()
 
     logger.info("creating transformers")
-    assert 0 < params.monai_crop_fraction < 1
-
-    transformers = create_monai_crop_to_many_sigmoid_transformers(
-        image_key=params.monai_image_key,
-        mask_key=params.monai_mask_key,
-        image_size=params.model_input_size,
-        crop_fraction=params.monai_crop_fraction,
-        crop_balanced=params.monai_crop_balanced,
-        num_samples=params.monai_crop_num_samples,
-        rotation_prob=params.monai_rotation_prob,
-        load_from_disk=params.monai_load_from_disk,
-        as_channels_first=params.monai_channels_first,
-        normalization=params.monai_normalization,
-        pos_fraction=params.monai_pos_fraction,
-        neg_fraction=params.monai_neg_fraction
+    transformers = create_weak_augmentation_transformers(
+        image_key=params.model_input_image_key,
+        mask_key=params.model_input_mask_key,
+        image_size=input_image_size,
+        normalization=params.aug_normalization_method
     )
 
     logger.info("creating data loader")
@@ -67,6 +56,15 @@ def main(params: AttributeDict):
     trainer.fit(model=FCNExperiment(params),
                 train_dataloader=loaders["train"],
                 val_dataloaders=loaders["valid"])
+
+
+def get_dataset_input_size(path: str) -> int:
+    _, folder = os.path.split(path)
+    try:
+        crop_size = int(folder.split("_")[-1])
+        return crop_size
+    except TypeError:
+        raise RuntimeError(f"cannot parse input image size from path string: {path}")
 
 
 if __name__ == '__main__':

@@ -66,8 +66,8 @@ def create_data_loaders(
         loaders[subset] = DataLoader(
             dataset=OnlineCroppingDataset(
                 reader=reader,
-                transform=getattr(transformers, subset, None),
                 samples=samples_subset,
+                transform=getattr(transformers, subset, None)
             ),
             batch_size=batch_size,
             shuffle=subset == "train",

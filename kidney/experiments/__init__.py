@@ -13,6 +13,8 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler, ExponentialLR, CosineAnnealingLR  # noqa
 from zeus.utils import classname
 
+from kidney.models.fcn import create_fcn_model
+
 
 class BaseExperiment(pl.LightningModule):  # noqa
 
@@ -113,6 +115,20 @@ class BaseExperiment(pl.LightningModule):  # noqa
             metric.__name__: metric(outputs, batch)
             for metric in self.metrics}
         return step_metrics
+
+
+class FCNExperiment(BaseExperiment):
+
+    def create_model(self) -> nn.Module:
+        return create_fcn_model(self.hparams)
+
+    def forward(self, batch: Dict) -> Dict:
+        outputs = self.model(batch["img"])
+        predicted_mask = outputs["out"]
+        if "seg" in batch:
+            loss = self.loss_fn(predicted_mask, batch["seg"])
+            return {"loss": loss, "outputs": predicted_mask}
+        return {"outputs": predicted_mask}
 
 
 def create_optimizer(optimizer_params: List, hparams: AttributeDict) -> Optimizer:
