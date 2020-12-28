@@ -59,7 +59,7 @@ class SigmoidOutputAsMask(OutputPostprocessor):
 
     def prepare(self, output: Dict) -> Dict:
         transformed = self.as_discrete(output["outputs"])
-        output.update({"outputs": transformed.squeezed()})
+        output.update({"outputs": transformed.squeeze()})
         return output
 
 
@@ -246,6 +246,7 @@ def create_weak_augmentation_transformers(
 
     valid_steps = [
         A.Lambda(name="channels_last", image=as_channels_last),
+        A.PadIfNeeded(min_height=image_size, min_width=image_size),
         *final_step
     ]
 
