@@ -9,9 +9,11 @@ import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 from pytorch_lightning.utilities import AttributeDict
+from segmentation_models_pytorch.losses import BINARY_MODE
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler, ExponentialLR, CosineAnnealingLR  # noqa
 from zeus.utils import classname
+from segmentation_models_pytorch.losses.dice import DiceLoss
 
 from kidney.models.fcn import create_fcn_model
 
@@ -178,6 +180,9 @@ def create_loss(hparams: AttributeDict) -> Callable:
     if name_normalized == "dice_sigmoid":
         from monai.losses import DiceLoss
         return DiceLoss(sigmoid=True)
+    elif name_normalized == "dice_bce_weighted":
+        config = hparams.loss_config
+        return CombinedDiceBCELoss(**config)
     raise ValueError(f"unknown loss function: {hparams.loss_name}")
 
 
@@ -213,3 +218,24 @@ def save_experiment_info(
     os.makedirs(dir_path, exist_ok=True)
     torch.save(info, join(dir_path, f"{filename}.pth"))
     return dir_path
+
+
+class CombinedDiceBCELoss(nn.Module):
+
+    def __init__(
+        self,
+        smooth: float = 0.0,
+        dice_weight: float = 1.0,
+    ):
+        assert 0 <= dice_weight <= 1, "dice weight should be in the range [0; 1]"
+        super().__init__()
+        self.smooth = smooth
+        self.dice_weight = dice_weight
+        self.dice_loss = DiceLoss(mode=BINARY_MODE, smooth=smooth)
+        self.bce_loss = nn.BCEWithLogitsLoss()
+
+    def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+        dice = self.dice_loss(y_pred, y_true)
+        bce = self.bce_loss(y_pred, y_true)
+        loss = dice * self.dice_weight + bce * (1 - self.dice_weight)
+        return loss

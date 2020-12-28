@@ -97,6 +97,12 @@ def add_loss_args(parser: ArgumentParser) -> ArgumentParser:
         required=True,
         help="Loss function."
     )
+    parser.add_argument(
+        "--loss_config",
+        default="{}",
+        type=json.loads,
+        help="Loss function parameters as JSON string."
+    )
     return parser
 
 
