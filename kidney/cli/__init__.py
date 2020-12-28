@@ -3,7 +3,6 @@ from functools import reduce, wraps
 from typing import Callable, Optional, List
 
 import pytorch_lightning as pl
-from pytorch_lightning.utilities import AttributeDict
 
 from kidney.experiments import save_experiment_info
 from kidney.log import get_logger

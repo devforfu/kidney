@@ -67,5 +67,7 @@ def add_unet_args(parser: ArgumentParser) -> ArgumentParser:
 def add_fcn_args(parser: ArgumentParser) -> ArgumentParser:
     parser.add_argument("--fcn_arch", choices=["resnet50", "resnet101"], default="resnet50")
     parser.add_argument("--fcn_pretrained", action="store_true")
+    parser.add_argument("--fcn_pretrained_backbone", action="store_true")
+    parser.add_argument("--fcn_aux_loss", action="store_true")
     parser.add_argument("--fcn_num_classes", type=int, default=1)
     return parser

@@ -17,7 +17,13 @@ def create_fcn_model(params: AttributeDict) -> nn.Module:
     }[params.fcn_arch]
     model = factory(
         pretrained=params.fcn_pretrained,
+        pretrained_backbone=getattr(params, "fcn_pretrained_backbone", False),
         progress=False,
-        num_classes=params.fcn_num_classes
+        aux_loss=getattr(params, "fcn_aux_loss", False),
     )
+    n_classes = params.fcn_num_classes
+    # TODO: check if resnet101 has the same number of classifier/aux blocks
+    model.classifier[4] = nn.Conv2d(512, n_classes, kernel_size=(1, 1), stride=(1, 1))
+    if model.aux_classifier is not None:
+        model.aux_classifier[4] = nn.Conv2d(256, n_classes, kernel_size=(1, 1), stride=(1, 1))
     return model
