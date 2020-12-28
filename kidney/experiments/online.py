@@ -1,7 +1,4 @@
-from typing import Dict
-
 import pytorch_lightning as pl
-import torch.nn as nn
 from pytorch_lightning.utilities import AttributeDict
 from zeus.core.random import super_seed
 
@@ -12,9 +9,8 @@ from kidney.cli.models import add_fcn_args, add_model_args, add_monai_args
 from kidney.datasets.kaggle import get_reader
 from kidney.datasets.online import create_data_loaders, read_boxes
 from kidney.datasets.transformers import create_monai_crop_to_many_sigmoid_transformers
-from kidney.experiments import BaseExperiment, save_experiment_info, FCNExperiment
+from kidney.experiments import save_experiment_info, FCNExperiment
 from kidney.log import get_logger
-from kidney.models.fcn import create_fcn_model
 
 
 @entry_point(

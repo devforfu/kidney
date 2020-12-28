@@ -1,9 +1,8 @@
 import abc
 from collections import Callable
 from dataclasses import dataclass
-from typing import Optional, Dict, Union, List
+from typing import Optional, Dict, List
 
-import cv2 as cv
 import numpy as np
 import pytorch_lightning as pl
 import rasterio
@@ -13,7 +12,6 @@ from zeus.torch_tools.utils import to_np
 
 from kidney.datasets.kaggle import outlier, DatasetReader, SampleType
 from kidney.inference.window import sliding_window_boxes
-from kidney.utils.image import channels_first, channels_last
 
 
 class InferenceAlgorithm:
@@ -50,11 +48,12 @@ class InferenceAlgorithm:
         """
         predictions = []
         for key in reader.get_keys(sample_type):
+            print(f"processing key: {key}")
             meta = reader.fetch_meta(key)
             predicted = self.predict_from_file(meta[sample_path_key])
             if encoder is not None:
                 predicted = encoder(predicted)
-            predictions.append({"id": key, "predicted": predicted})
+            predictions.append({"id": key, "pixels": predicted})
         return predictions
 
 
@@ -64,6 +63,7 @@ class SlidingWindowConfig:
     overlap: int
     max_batch_size: int
     check_for_outliers: bool = True
+    outliers_threshold: int = 1000
     transform_input: Optional[Callable] = None
     transform_output: Optional[Callable] = None
 
@@ -73,67 +73,87 @@ class SlidingWindow(InferenceAlgorithm):
     model: pl.LightningModule
     config: SlidingWindowConfig
     device: torch.device
+    debug: bool = False
 
     def predict_from_file(self, filename: str) -> np.ndarray:
         size = self.config.window_size
 
         with rasterio.open(filename) as dataset:
-            w, h = dataset.shape
+            h, w = dataset.shape
             boxes = sliding_window_boxes(w, h, size, self.config.overlap)
             n_splits = int(np.ceil(boxes.shape[0] / self.config.max_batch_size))
             mask = np.zeros((h, w), dtype=np.uint8)
 
-            for batch in np.array_split(boxes, n_splits):
+            print("boxes widths:", set(boxes[:, 2] - boxes[:, 0]))
+            print("boxes heights:", set(boxes[:, 3] - boxes[:, 1]))
+
+            for i, batch in enumerate(np.array_split(boxes, n_splits), 1):
+                print(f"processing batch {i} of {n_splits}... ", end="")
                 samples = [
                     {
-                        "img": self.transform_input(
-                            channels_first(
-                                cv.resize(
-                                    channels_last(image).astype(np.float32),
-                                    (size, size)
-                                )
-                            )
-                        ),
-                        "box": box
+                        "box": box,
+                        **self.transform_input({
+                            "img": image,
+                            "seg": np.zeros_like(image)
+                        })
                     }
                     for box, image in (
                         (
                             [x1, y1, x2, y2],
                             dataset.read(
                                 [1, 2, 3],
-                                window=Window.from_slices((x1, x2), (y1, y2))
+                                window=Window.from_slices((y1, y2), (x1, x2))
                             )
                         )
                         for x1, y1, x2, y2 in batch
                     )
                     if (
-                        not self.config.check_for_outliers or
-                        self.config.check_for_outliers and not outlier(image)
+                        not self.config.check_for_outliers
+                        or (
+                            self.config.check_for_outliers and
+                            not outlier(image, threshold=self.config.outliers_threshold)
+                        )
                     )
                 ]
-                if not samples:
+                if samples:
+                    print(f"number of samples: {len(samples)}")
+                else:
+                    print("no relevant samples")
                     continue
-                collated = self.collate_batch(samples)
-                output = self.model(collated)
-                result = self.transform_output(output)
+
+                with torch.no_grad():
+                    collated = self.collate_batch(samples)
+                    output = self.model(collated)
+                    result = self.transform_output(output)
+
                 self.update_predictions_mask(mask, result, collated["meta"])
+
+                if self.debug:
+                    break  # process one set of boxes only
 
         return mask
 
-    def transform_input(self, t: Union[np.ndarray, torch.Tensor]) -> Dict:
-        return t if self.config.transform_input is None else self.config.transform_input(t)
+    def transform_input(self, x: Dict) -> Dict:
+        return x if self.config.transform_input is None else self.config.transform_input(x)
 
     def transform_output(self, x: Dict) -> Dict:
         return x if self.config.transform_output is None else self.config.transform_output(x)
 
-    @classmethod
-    def collate_batch(cls, samples: List[Dict]) -> Dict:
+    def collate_batch(self, samples: List[Dict]) -> Dict:
         img = torch.stack([sample["img"] for sample in samples])
-        meta = [{k: v for k, v in sample.items() if k != "img"} for sample in samples]
+        img = img.to(self.device)
+        meta = [{
+            k: v
+            for k, v in sample.items()
+            if k not in {"img", "seg"}
+        } for sample in samples]
         return {"img": img, "meta": meta}
 
     @classmethod
     def update_predictions_mask(cls, mask: np.ndarray, result: Dict, meta: List[Dict]):
         for i, info in enumerate(meta):
             x1, y1, x2, y2 = info["box"]
-            mask[y1:y2, x1:x2] = to_np(result["outputs"][i].byte())
+            tensor = result["outputs"]
+            if len(meta) > 1:
+                tensor = tensor[i]
+            mask[y1:y2, x1:x2] = to_np(tensor.byte())
