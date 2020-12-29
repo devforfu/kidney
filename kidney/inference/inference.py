@@ -53,7 +53,7 @@ class InferenceAlgorithm:
             predicted = self.predict_from_file(meta[sample_path_key])
             if encoder is not None:
                 predicted = encoder(predicted)
-            predictions.append({"id": key, "pixels": predicted})
+            predictions.append({"id": key, "predicted": predicted})
         return predictions
 
 
