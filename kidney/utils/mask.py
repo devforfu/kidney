@@ -72,7 +72,7 @@ def rle_numba(pixels):
     size = len(pixels)
     points = []
     if pixels[0] == 1:
-        points.append(0)
+        points.append(0+1)
     flag = True
     for i in range(1, size):
         if pixels[i] != pixels[i-1]:
