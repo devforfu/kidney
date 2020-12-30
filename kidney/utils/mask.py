@@ -96,7 +96,6 @@ def rle_numba_encode(image):
 def main():
     mask = '9 1 16 4 24 1 39 1 46 1 51 5'
     decoded = rle_decode(mask, (7, 9))
-    # encoded = rle_encode(decoded)
     encoded = rle_numba_encode(decoded)
     assert mask == encoded
 
