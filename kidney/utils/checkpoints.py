@@ -1,11 +1,14 @@
+import os
+from collections import OrderedDict
 from dataclasses import dataclass
+from operator import itemgetter
 from os.path import exists, join
 from typing import Type, Dict, Tuple, Optional
 
-import torch
 import pytorch_lightning as pl
+import torch
 from zeus.torch_tools.checkpoints import find_latest_dir, find_best_file
-from zeus.utils import TimestampFormat
+from zeus.utils import TimestampFormat, list_files, NamedList
 
 
 @dataclass
@@ -30,7 +33,83 @@ class CheckpointsStorage:
     def __post_init__(self):
         assert exists(self.folder)
 
+    def fetch_available_checkpoints(
+        self,
+        metric: str,
+        best_checkpoint_per_date: bool = True,
+        with_meta: bool = True
+    ) -> NamedList:
+        timestamps = sorted(
+            [
+                (join(self.folder, t), self.timestamp_format.parse(t))
+                for t in os.listdir(self.folder)
+            ],
+            key=itemgetter(1)
+        )
+        checkpoints = OrderedDict()
+
+        for ts, _ in timestamps:
+            key = os.path.basename(ts)
+
+            if with_meta:
+                meta_file = join(ts, self.meta_name)
+                if not os.path.exists(meta_file):
+                    continue
+            else:
+                meta_file = None
+
+            if best_checkpoint_per_date:
+                filename = find_best_file(ts, metric=metric, extension=self.extension)
+                checkpoints[key] = {"checkpoint": filename, "meta": meta_file}
+
+            else:
+                checkpoints_per_subdir = []
+                for filename in list_files(ts):
+                    if filename.endswith(self.meta_name):
+                        continue
+                    checkpoints_per_subdir.append(filename)
+                checkpoints[key] = {"checkpoints": checkpoints_per_subdir, "meta": meta_file}
+
+        return NamedList(checkpoints)
+
     def fetch_best_file(self, metric: str, with_meta: bool = True) -> Checkpoint:
+        """Fetches the best (according to given `metric`) checkpoint from the
+        latest checkpoint's folder.
+
+        Each checkpoint is expected to follow a certain naming condition that includes
+        checkpoint's performance metrics, like:
+
+            epoch=<number>_val_loss=<number>.<extension>
+
+        And each checkpoint's folder should have a certain structure, like:
+
+            /checkpoints
+                /Mon_02_Mar__04_05_06
+                    /epoch=<epoch_1>_val_loss=<loss_1>.<extension>
+                    /epoch=<epoch_2>_val_loss=<loss_2>.<extension>
+                    ...
+                    /<meta_name>
+                /Tue_03_Apr__05_06_07
+                    ...
+
+        Only the folder with the latest timestamp is considered, and the best
+        checkpoint is discovered in this folder.
+
+        Parameters
+        ----------
+        metric
+            Metric used to determine the best checkpoint file. Should be a part of
+            checkpoints' filenames.
+        with_meta
+            If True, each checkpoint is expected to have an accompanying file with
+            meta-information storing experiment's parameters and configurations.
+
+        Returns
+        -------
+        Checkpoint
+            The structure with best file paths.
+
+        """
         latest_dir = find_latest_dir(self.folder, str(self.timestamp_format))
         meta_file = join(latest_dir, self.meta_name)
 
@@ -49,6 +128,23 @@ class CheckpointsStorage:
         metric: str,
         **restore_kwargs: Dict
     ) -> Tuple[pl.LightningModule, Checkpoint]:
+        """Restores the best checkpoint for a given experiment.
+
+        Parameters
+        ----------
+        factory
+            Experiment's factory.
+        metric
+            Metric used to determine the best checkpoint file.
+        restore_kwargs
+            Additional parameters given to `factory.load_from_checkpoint` method.
+
+        Returns
+        -------
+        Tuple
+            The restored experiment and information about checkpoint.
+
+        """
         checkpoint = self.fetch_best_file(metric, with_meta=True)
         experiment = factory.load_from_checkpoint(
             checkpoint.path,
