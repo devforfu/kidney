@@ -1,7 +1,7 @@
 import abc
 from collections import Callable
 from dataclasses import dataclass
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, cast
 
 import numpy as np
 import pytorch_lightning as pl
@@ -72,8 +72,11 @@ class SlidingWindowConfig:
 class SlidingWindow(InferenceAlgorithm):
     model: pl.LightningModule
     config: SlidingWindowConfig
-    device: torch.device
+    device: torch.device = torch.device("cpu")
     debug: bool = False
+
+    def __post_init__(self):
+        self.model = cast(pl.LightningModule, self.model.to(self.device))
 
     def predict_from_file(self, filename: str) -> np.ndarray:
         size = self.config.window_size
