@@ -5,6 +5,7 @@ from operator import itemgetter
 from os.path import exists, join
 from typing import Type, Dict, Tuple, Optional
 
+import importlib
 import pytorch_lightning as pl
 import torch
 from zeus.torch_tools.checkpoints import find_latest_dir, find_best_file
@@ -152,3 +153,20 @@ class CheckpointsStorage:
             params=checkpoint.meta["params"]
         )
         return experiment, checkpoint
+
+
+def load_experiment(factory, checkpoint_file, meta_file, strict=False):
+    meta = torch.load(meta_file)
+    experiment = factory.load_from_checkpoint(
+        checkpoint_file, params=meta["params"], strict=strict)
+    experiment = experiment.eval()
+    return experiment, meta
+
+
+def get_factory(import_path: str) -> Type[pl.LightningModule]:
+    try:
+        module_path, class_name = import_path.rsplit(".", 1)
+        module = importlib.import_module(module_path)
+        return getattr(module, class_name)
+    except (ValueError, AttributeError):
+        raise ImportError(f"cannot import class: {import_path}")
