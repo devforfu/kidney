@@ -40,9 +40,10 @@ def main(params: AttributeDict):
         normalization=params.aug_normalization_method
     )
 
-    logger.info("creating data loader")
+    logger.info("creating data loaders")
     loaders = create_data_loaders(
         reader=reader,
+        valid_keys=[params.fold] if "fold" in params else None,
         transformers=transformers,
         samples=read_boxes(params.dataset),
         num_workers=params.num_workers,

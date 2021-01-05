@@ -1,7 +1,8 @@
 import random
 from collections import OrderedDict
-from itertools import chain
-from typing import List, Dict, Callable, Optional
+from functools import reduce
+from itertools import chain, product
+from typing import List, Dict, Callable, Optional, Set
 
 import numpy as np
 from monai.data import list_data_collate
@@ -10,7 +11,6 @@ from zeus.utils import list_files
 
 from kidney.datasets.kaggle import DatasetReader, SampleType
 from kidney.datasets.transformers import Transformers
-from kidney.utils import rle
 from kidney.utils.mask import rle_decode
 from kidney.utils.tiff import read_tiff_crop
 
@@ -46,16 +46,19 @@ def create_data_loaders(
     transformers: Transformers,
     samples: List[Dict],
     train_keys: Optional[List[str]] = None,
+    valid_keys: Optional[List[str]] = None,
     num_workers: int = 0,
     batch_size: int = 4,
 ) -> OrderedDict:
 
     keys = reader.get_keys(SampleType.Labeled)
-    if train_keys is None:
+    if train_keys is None and valid_keys is None:
         valid_keys = [random.choice(keys)]
         train_keys = [key for key in keys if key not in valid_keys]
     else:
-        valid_keys = [key for key in keys if key not in train_keys]
+        train_keys, valid_keys = split_if_none(train_keys, valid_keys)
+
+    check_disjoint_subsets(set(keys), set(train_keys), set(valid_keys))
 
     loaders = OrderedDict()
     for subset, keys in (
@@ -82,3 +85,34 @@ def read_boxes(folder: str) -> List[Dict]:
 
     import srsly
     return list(chain(*[srsly.read_jsonl(fn) for fn in list_files(folder)]))
+
+
+def split_if_none(a: Optional[List] = None, b: Optional[List] = None, size: int = 1):
+    if a is None and b is None:
+        raise ValueError("one of the given lists shouldn't be None")
+    elif a is not None and b is None:
+        total = len(a)
+        if size >= total:
+            raise ValueError(f"the split size is larger or equal than total number of elements: {size} >= {total}")
+        b = random.sample(a, k=size)
+        a = [x for x in a if x not in b]
+    elif a is None and b is not None:
+        return split_if_none(b, a)
+    return a, b
+
+
+def check_disjoint_subsets(superset: Set, *subsets: Set):
+    """Checks if given `subsets` are true subsets of `origin` and don't intersect
+    with each other.
+
+    Note that this function becomes very computationally expensive as the number of
+    subsets increases.
+    """
+    joined = reduce(lambda x, y: set.union(x, y), subsets, set())
+    if superset != joined:
+        raise ValueError("the union of subsets is not equal to the superset")
+    for a, b in product(subsets, subsets):
+        if a is b:
+            continue
+        if a.intersection(b):
+            raise ValueError(f"subsets are not disjoint: {a} and {b}")

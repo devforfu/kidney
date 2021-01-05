@@ -117,3 +117,17 @@ def add_metrics_args(parser: ArgumentParser) -> ArgumentParser:
         help="A list of comma-separated metric names."
     )
     return parser
+
+
+@extend_parser
+def add_validation_args(parser: ArgumentParser) -> ArgumentParser:
+    """Extends arguments parser with validation-specific parameters."""
+
+    parser.add_argument(
+        "--fold",
+        default=None,
+        help=
+        "A parameter that defines validation approach; it's "
+        "implementation is up to specific training script."
+    )
+    return parser
