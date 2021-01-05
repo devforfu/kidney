@@ -32,7 +32,7 @@ def make_trainer_init_params(params: AttributeDict) -> AttributeDict:
     """Creates a dictionary of parameters to initialize PyTorch Lightning trainer."""
 
     root = os.path.join(params.experiment_dir, params.experiment_name)
-    if "fold" in params:
+    if params.get("fold"):
         root = os.path.join(root, params["fold"])
 
     if params.timestamp is None:

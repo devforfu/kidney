@@ -1,19 +1,21 @@
+import inspect
 import os
-from abc import ABC
 from collections import defaultdict
+from dataclasses import dataclass
+from operator import itemgetter
 from os.path import join
 from typing import Optional, Dict, Callable, List, Any
 
 import numpy as np
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-import pytorch_lightning as pl
 from pytorch_lightning.utilities import AttributeDict
 from segmentation_models_pytorch.losses import BINARY_MODE
+from segmentation_models_pytorch.losses.dice import DiceLoss
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler, ExponentialLR, CosineAnnealingLR  # noqa
 from zeus.utils import classname
-from segmentation_models_pytorch.losses.dice import DiceLoss
 
 from kidney.models.fcn import create_fcn_model
 
@@ -129,7 +131,11 @@ class FCNExperiment(BaseExperiment):
         predicted_mask = outputs["out"]
         if "seg" in batch:
             loss = self.loss_fn(predicted_mask, batch["seg"])
-            return {"loss": loss, "outputs": predicted_mask}
+            if isinstance(loss, Dict):
+                loss["outputs"] = predicted_mask
+                return loss
+            else:
+                return {"loss": loss, "outputs": predicted_mask}
         return {"outputs": predicted_mask}
 
 
@@ -187,7 +193,38 @@ def create_loss(hparams: AttributeDict) -> Callable:
 
 
 def create_metrics(hparams: AttributeDict) -> List[Callable]:
-    return []
+    return [create_metric(name) for name in hparams.metrics]
+
+
+def create_metric(name: str) -> Callable:
+    metric, kwargs = parse_metric_name(name)
+    if metric == "loss":
+        if "key" not in kwargs:
+            raise ValueError("cannot initialize '{name}' metric without 'key' parameter")
+        return DictKeyGetter(kwargs["key"])
+    raise ValueError(f"unknown metric name was requested: {name}")
+
+
+@dataclass
+class DictKeyGetter:
+    key: str
+
+    @property
+    def __name__(self) -> str:
+        return self.key
+
+    def __call__(self, outputs: Dict, _: Dict) -> torch.Tensor:
+        return outputs[self.key]
+
+
+def parse_metric_name(name: str):
+    try:
+        metric, kwargs = name.split(":")
+    except ValueError:
+        metric, kwargs = name, {}
+    else:
+        kwargs = dict([kv.split("=") for kv in kwargs.split(";")])
+    return metric, kwargs
 
 
 def compute_average_metrics(outputs: List[Any], suffix: Optional[str] = None) -> Dict:
@@ -234,8 +271,12 @@ class CombinedDiceBCELoss(nn.Module):
         self.dice_loss = DiceLoss(mode=BINARY_MODE, smooth=smooth)
         self.bce_loss = nn.BCEWithLogitsLoss()
 
-    def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         dice = self.dice_loss(y_pred, y_true)
         bce = self.bce_loss(y_pred, y_true)
         loss = dice * self.dice_weight + bce * (1 - self.dice_weight)
-        return loss
+        return {"loss": loss, "dice": dice, "bce": bce}
+
+
+if __name__ == '__main__':
+    [parse_metric_name(name) for name in "loss:key=dice,loss:key=bce".split(",")]
