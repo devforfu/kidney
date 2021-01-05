@@ -47,8 +47,9 @@ class InferenceAlgorithm:
 
         """
         predictions = []
-        for key in reader.get_keys(sample_type):
-            print(f"processing key: {key}")
+        keys = reader.get_keys(sample_type)
+        for i, key in enumerate(keys):
+            print(f"processing key: {key} [{i + 1}/{len(keys)}]")
             meta = reader.fetch_meta(key)
             predicted = self.predict_from_file(meta[sample_path_key])
             if encoder is not None:
