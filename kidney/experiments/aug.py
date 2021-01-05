@@ -8,6 +8,7 @@ from kidney.cli import entry_point, default_args
 from kidney.cli.basic import basic_parser
 from kidney.cli.lightning import make_trainer_init_params
 from kidney.cli.models import add_fcn_args, add_model_args, add_aug_args
+from kidney.cli.training import add_validation_args
 from kidney.datasets.kaggle import get_reader
 from kidney.datasets.online import create_data_loaders, read_boxes
 from kidney.datasets.transformers import create_weak_augmentation_transformers
@@ -21,6 +22,7 @@ from kidney.log import get_logger
         add_fcn_args,
         add_model_args,
         add_aug_args,
+        add_validation_args
     ]
 )
 def main(params: AttributeDict):
@@ -28,9 +30,17 @@ def main(params: AttributeDict):
 
     logger = get_logger(__file__)
     input_image_size = get_dataset_input_size(params.dataset)
+    fold_training = params.get("fold") is not None
 
     logger.info("creating dataset reader")
     reader = get_reader()
+
+    if fold_training:
+        logger.info(f"running in K-fold training mode; the current fold: {params.fold}")
+        valid_keys = [params.fold]
+        params["experiment_name"] += f"/{params.fold}"
+    else:
+        valid_keys = None
 
     logger.info("creating transformers")
     transformers = create_weak_augmentation_transformers(
@@ -43,7 +53,7 @@ def main(params: AttributeDict):
     logger.info("creating data loaders")
     loaders = create_data_loaders(
         reader=reader,
-        valid_keys=[params.fold] if "fold" in params else None,
+        valid_keys=valid_keys,
         transformers=transformers,
         samples=read_boxes(params.dataset),
         num_workers=params.num_workers,

@@ -55,8 +55,10 @@ def create_data_loaders(
     if train_keys is None and valid_keys is None:
         valid_keys = [random.choice(keys)]
         train_keys = [key for key in keys if key not in valid_keys]
-    else:
-        train_keys, valid_keys = split_if_none(train_keys, valid_keys)
+    elif train_keys is None and valid_keys is not None:
+        train_keys = [key for key in keys if key not in valid_keys]
+    elif train_keys is not None and valid_keys is None:
+        valid_keys = [key for key in keys if key not in train_keys]
 
     check_disjoint_subsets(set(keys), set(train_keys), set(valid_keys))
 
@@ -85,20 +87,6 @@ def read_boxes(folder: str) -> List[Dict]:
 
     import srsly
     return list(chain(*[srsly.read_jsonl(fn) for fn in list_files(folder)]))
-
-
-def split_if_none(a: Optional[List] = None, b: Optional[List] = None, size: int = 1):
-    if a is None and b is None:
-        raise ValueError("one of the given lists shouldn't be None")
-    elif a is not None and b is None:
-        total = len(a)
-        if size >= total:
-            raise ValueError(f"the split size is larger or equal than total number of elements: {size} >= {total}")
-        b = random.sample(a, k=size)
-        a = [x for x in a if x not in b]
-    elif a is None and b is not None:
-        return split_if_none(b, a)
-    return a, b
 
 
 def check_disjoint_subsets(superset: Set, *subsets: Set):

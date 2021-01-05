@@ -35,14 +35,6 @@ def add_training_loop_args(parser: ArgumentParser) -> ArgumentParser:
         "optimizer doesn't support weigh decay or ignores this "
         "option."
     )
-    parser.add_argument(
-        "--fold_no",
-        default=0,
-        type=int,
-        help=
-        "Data fold to use for training; the interpretation of this argument is up "
-        "to training code."
-    )
     return parser
 
 
