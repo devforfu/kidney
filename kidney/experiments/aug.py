@@ -37,8 +37,8 @@ def main(params: AttributeDict):
 
     if fold_training:
         logger.info(f"running in K-fold training mode; the current fold: {params.fold}")
-        valid_keys = [params.fold]
-        params["experiment_name"] += f"/{params.fold}"
+        valid_keys = [params.fold] if fold_training else None
+        params["fold"] = params.fold
     else:
         valid_keys = None
 
