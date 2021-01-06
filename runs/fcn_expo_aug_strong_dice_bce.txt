@@ -1,0 +1,22 @@
+--dataset=/mnt/fast/data/kidney_boxes_1024
+--aug_pipeline=strong
+--loss_name=dice_bce_weighted
+--loss_config={"smooth": 1, "dice_weight": 0.2}
+--metrics=loss:key=dice,loss:key=bce
+--model_input_size=256
+--learning_rate=0.001
+--batch_size=36
+--num_workers=12
+--gpus=1
+--wandb_logging_enabled
+--checkpoints_enabled
+--checkpoints_metric=avg_val_loss
+--early_stopping_enabled
+--early_stopping_metric=avg_val_loss
+--early_stopping_patience=3
+--scheduler_name=expo
+--scheduler_interval=epoch
+--scheduler_config={"scheduler_gamma": 0.95}
+--fcn_arch=resnet50
+--fcn_pretrained
+--fcn_pretrained_backbone

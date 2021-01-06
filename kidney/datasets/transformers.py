@@ -212,16 +212,8 @@ def create_weak_augmentation_transformers(
     normalization: IntensityNormalization = IntensityNormalization.TorchvisionSegmentation,
     debug: bool = False
 ) -> Transformers:
-    mean, std = normalization.get_stats()
 
-    intensity_normalization = (
-        A.Normalize(
-            mean=np.array(list(mean)).reshape((1, 1, 3)).astype(np.float32),
-            std=np.array(list(std)).reshape((1, 1, 3)).astype(np.float32)
-        )
-        if normalization == IntensityNormalization.TorchvisionSegmentation
-        else A.NoOp()
-    )
+    intensity_normalization = create_normalization(normalization, skip=debug)
 
     final_step = (
         [A.NoOp()]
@@ -235,9 +227,11 @@ def create_weak_augmentation_transformers(
 
     train_steps = [
         A.Lambda(name="channels_last", image=as_channels_last),
-        A.RandomSizedCrop(min_max_height=(image_size*3//4, image_size),
-                          height=image_size,
-                          width=image_size),
+        A.RandomSizedCrop(
+            min_max_height=(image_size*3//4, image_size),
+            height=image_size,
+            width=image_size
+        ),
         A.VerticalFlip(p=0.5),
         A.HorizontalFlip(p=0.5),
         A.Rotate(limit=30, p=0.3),
@@ -256,6 +250,65 @@ def create_weak_augmentation_transformers(
         test_preprocessing=AlbuAdapter(A.Compose(valid_steps), image_key, mask_key),
         test_postprocessing=SigmoidOutputAsMask(),
     )
+
+
+def create_strong_augmentation_transformers(
+    image_key: str,
+    mask_key: str,
+    image_size: int,
+    normalization: IntensityNormalization = IntensityNormalization.TorchvisionSegmentation,
+    debug: bool = False
+):
+    intensity_normalization = create_normalization(normalization, skip=debug)
+
+    final_step = (
+        [A.NoOp()]
+        if debug
+        else [
+            intensity_normalization,
+            A.Lambda(name="add_channel_axis", mask=add_first_channel),
+            ToTensorV2()
+        ]
+    )
+
+    train_steps = [
+        A.Lambda(name="channels_last", image=as_channels_last),
+        A.Resize(image_size, image_size),
+        A.VerticalFlip(p=0.5),
+        A.HorizontalFlip(p=0.5),
+        A.Rotate(limit=45, p=0.5),
+        A.ColorJitter(
+            brightness=0.07,
+            contrast=0.07,
+            saturation=0.1,
+            hue=0.1,
+            p=0.3
+        ),
+        *final_step
+    ]
+
+    valid_steps = [
+        A.Lambda(name="channels_last", image=as_channels_last),
+        A.Resize(image_size, image_size),
+        *final_step
+    ]
+
+    return Transformers(
+        train=AlbuAdapter(A.Compose(train_steps), image_key, mask_key),
+        valid=AlbuAdapter(A.Compose(valid_steps), image_key, mask_key),
+        test_preprocessing=AlbuAdapter(A.Compose(valid_steps), image_key, mask_key),
+        test_postprocessing=SigmoidOutputAsMask()
+    )
+
+
+def create_normalization(normalization: IntensityNormalization, skip: bool = False):
+    if skip:
+        return A.NoOp()
+    mean, std = [
+        np.array(list(stat)).reshape((1, 1, 3))
+        for stat in normalization.get_stats()
+    ]
+    return A.Normalize(mean, std)
 
 
 def add_first_channel(arr: np.ndarray, **kwargs) -> np.ndarray:

@@ -3,6 +3,7 @@ import os
 import pytorch_lightning as pl
 from pytorch_lightning.utilities import AttributeDict
 from zeus.core.random import super_seed
+from zeus.utils import if_none
 
 from kidney.cli import entry_point, default_args
 from kidney.cli.basic import basic_parser
@@ -11,7 +12,7 @@ from kidney.cli.models import add_fcn_args, add_model_args, add_aug_args
 from kidney.cli.training import add_validation_args
 from kidney.datasets.kaggle import get_reader
 from kidney.datasets.online import create_data_loaders, read_boxes
-from kidney.datasets.transformers import create_weak_augmentation_transformers
+from kidney.datasets.transformers import create_weak_augmentation_transformers, create_strong_augmentation_transformers
 from kidney.experiments import save_experiment_info, FCNExperiment
 from kidney.log import get_logger
 
@@ -29,7 +30,7 @@ def main(params: AttributeDict):
     super_seed(params.seed)
 
     logger = get_logger(__file__)
-    input_image_size = get_dataset_input_size(params.dataset)
+    input_image_size = if_none(params.model_input_size, get_dataset_input_size(params.dataset))
     fold_training = params.get("fold") is not None
 
     logger.info("creating dataset reader")
@@ -43,7 +44,10 @@ def main(params: AttributeDict):
         valid_keys = None
 
     logger.info("creating transformers")
-    transformers = create_weak_augmentation_transformers(
+    transformers = {
+        "weak": create_weak_augmentation_transformers,
+        "strong": create_strong_augmentation_transformers
+    }[params.aug_pipeline](
         image_key=params.model_input_image_key,
         mask_key=params.model_input_mask_key,
         image_size=input_image_size,

@@ -6,7 +6,7 @@ from kidney.datasets.transformers import IntensityNormalization
 
 @extend_parser
 def add_model_args(parser: ArgumentParser) -> ArgumentParser:
-    parser.add_argument("--model_input_size", type=int, default=1024)
+    parser.add_argument("--model_input_size", type=int, default=None)
     parser.add_argument("--model_input_image_key", default="img")
     parser.add_argument("--model_input_mask_key", default="seg")
     return parser
@@ -39,7 +39,7 @@ def add_monai_args(parser: ArgumentParser) -> ArgumentParser:
 
 @extend_parser
 def add_aug_args(parser: ArgumentParser) -> ArgumentParser:
-    parser.add_argument("--aug_pipeline", default="weak")
+    parser.add_argument("--aug_pipeline", default="weak", choices=["weak", "strong"])
     parser.add_argument("--aug_normalization_method",
                         type=IntensityNormalization,
                         default=IntensityNormalization.TorchvisionSegmentation)
