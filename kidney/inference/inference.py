@@ -3,6 +3,7 @@ from collections import Callable
 from dataclasses import dataclass
 from typing import Optional, Dict, List, cast
 
+import cv2 as cv
 import numpy as np
 import pytorch_lightning as pl
 import rasterio
@@ -154,10 +155,22 @@ class SlidingWindow(InferenceAlgorithm):
         return {"img": img, "meta": meta}
 
     @classmethod
-    def update_predictions_mask(cls, mask: np.ndarray, result: Dict, meta: List[Dict]):
+    def update_predictions_mask(
+        cls,
+        mask: np.ndarray,
+        result: Dict,
+        meta: List[Dict],
+        interpolation: int = cv.INTER_LINEAR
+    ):
         for i, info in enumerate(meta):
             x1, y1, x2, y2 = info["box"]
             tensor = result["outputs"]
             if len(meta) > 1:
                 tensor = tensor[i]
-            mask[y1:y2, x1:x2] = to_np(tensor.byte())
+            array = to_np(tensor.byte())
+            height, width = y2 - y1, x2 - x1
+            if array.shape[0] != height or array.shape[1] != width:
+                array = cv.resize(
+                    array, (height, width),
+                    interpolation=interpolation)
+            mask[y1:y2, x1:x2] = array
