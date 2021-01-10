@@ -2,7 +2,7 @@
 --aug_pipeline=strong
 --loss_name=dice_bce_weighted
 --loss_config={"smooth": 1, "dice_weight": 0.2}
---metrics=loss:key=dice,loss:key=bce
+--metrics=loss:key=dice;loss:key=bce
 --model_input_size=256
 --learning_rate=0.001
 --batch_size=36

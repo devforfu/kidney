@@ -1,3 +1,4 @@
+import ast
 import inspect
 import os
 from collections import defaultdict
@@ -10,11 +11,12 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
+from monai.metrics import DiceMetric
 from pytorch_lightning.utilities import AttributeDict
 from segmentation_models_pytorch.losses import BINARY_MODE
 from segmentation_models_pytorch.losses.dice import DiceLoss
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler, ExponentialLR, CosineAnnealingLR  # noqa
+from torch.optim.lr_scheduler import _LRScheduler, ExponentialLR, CosineAnnealingLR, OneCycleLR  # noqa
 from zeus.utils import classname
 
 from kidney.models.fcn import create_fcn_model
@@ -168,13 +170,20 @@ def create_scheduler(optimizer: Optimizer, experiment: BaseExperiment) -> _LRSch
             t_max = hparams.epochs
         elif hparams.scheduler_interval == "step":
             dl = experiment.train_dataloader()
-            t_max = len(dl) * hparams.epochs
+            t_max = len(dl) * hparams.max_epochs
         else:
             raise ValueError(f"unknown scheduler interval: {hparams.scheduler_interval}")
         scheduler = CosineAnnealingLR(
             optimizer=optimizer,
             T_max=t_max,
             eta_min=config.get("eta_min", 1e-6)
+        )
+    elif name_normalized == "one_cycle":
+        dl = experiment.train_dataloader()
+        scheduler = OneCycleLR(
+            optimizer=optimizer,
+            total_steps=len(dl) * hparams.max_epochs,
+            **config
         )
     else:
         raise ValueError(f"unknown optimizer: {name}")
@@ -189,20 +198,45 @@ def create_loss(hparams: AttributeDict) -> Callable:
     elif name_normalized == "dice_bce_weighted":
         config = hparams.loss_config
         return CombinedDiceBCELoss(**config)
+    elif name_normalized == "bce_logits":
+        return nn.BCEWithLogitsLoss()
+    elif name_normalized == "bce_sigmoid":
+        return nn.BCELoss()
     raise ValueError(f"unknown loss function: {hparams.loss_name}")
 
 
 def create_metrics(hparams: AttributeDict) -> List[Callable]:
-    return [create_metric(name) for name in hparams.metrics]
+    return (
+        [create_metric(name) for name in hparams.metrics]
+        if hparams.metrics is not None
+        else []
+    )
 
 
 def create_metric(name: str) -> Callable:
     metric, kwargs = parse_metric_name(name)
     if metric == "loss":
         if "key" not in kwargs:
-            raise ValueError("cannot initialize '{name}' metric without 'key' parameter")
+            raise ValueError(f"cannot initialize '{name}' metric without 'key' parameter")
         return DictKeyGetter(kwargs["key"])
+    elif metric == "dice":
+        return DictDiceMetric(**kwargs)
     raise ValueError(f"unknown metric name was requested: {name}")
+
+
+class DictDiceMetric:
+
+    def __init__(self, **kwargs):
+        self.dice = DiceMetric(**kwargs)
+
+    @property
+    def __name__(self) -> str:
+        return "dice_metric"
+
+    def __call__(self, outputs: Dict, batch: Dict) -> torch.Tensor:
+        predicted_mask = outputs["outputs"]
+        true_mask = batch["seg"]
+        return self.dice(predicted_mask, true_mask)
 
 
 @dataclass
@@ -223,7 +257,15 @@ def parse_metric_name(name: str):
     except ValueError:
         metric, kwargs = name, {}
     else:
-        kwargs = dict([kv.split("=") for kv in kwargs.split(";")])
+        parsed = {}
+        for kv in kwargs.split(","):
+            k, v = kv.split("=")
+            try:
+                v = ast.literal_eval(v)
+            except (ValueError, SyntaxError):
+                pass
+            parsed[k] = v
+        kwargs = parsed
     return metric, kwargs
 
 

@@ -1,5 +1,7 @@
 from argparse import ArgumentParser
 
+import json
+
 from kidney.cli import extend_parser, comma_separated_list_of_integers
 from kidney.datasets.transformers import IntensityNormalization
 
@@ -70,4 +72,11 @@ def add_fcn_args(parser: ArgumentParser) -> ArgumentParser:
     parser.add_argument("--fcn_pretrained_backbone", action="store_true")
     parser.add_argument("--fcn_aux_loss", action="store_true")
     parser.add_argument("--fcn_num_classes", type=int, default=1)
+    return parser
+
+
+@extend_parser
+def add_smp_args(parser: ArgumentParser) -> ArgumentParser:
+    parser.add_argument("--smp_model_type", default="unet")
+    parser.add_argument("--smp_model_config", type=json.loads, default="{}")
     return parser

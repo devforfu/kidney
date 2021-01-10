@@ -82,7 +82,11 @@ def entry_point(base_parser_factory: Callable, extensions: Optional[List[Callabl
 
 
 def comma_separated_list_of_strings(value: str) -> List[str]:
-    return value.split(',')
+    return value.split(",")
+
+
+def semicolon_separated_list_of_strings(value: str) -> List[str]:
+    return value.split(";")
 
 
 def comma_separated_list_of_integers(value: str) -> List[int]:

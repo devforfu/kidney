@@ -306,7 +306,7 @@ def create_strong_augmentation_transformers(
 
 
 def create_normalization(normalization: IntensityNormalization, skip: bool = False):
-    if skip:
+    if skip or normalization == IntensityNormalization.NoOp:
         return A.NoOp()
     mean, std = [
         np.array(list(stat)).reshape((1, 1, 3))
