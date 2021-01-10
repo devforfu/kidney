@@ -1,9 +1,6 @@
-import os
-
 import pytorch_lightning as pl
 from pytorch_lightning.utilities import AttributeDict
 from zeus.core.random import super_seed
-from zeus.utils import if_none
 
 from kidney.cli import entry_point, default_args
 from kidney.cli.basic import basic_parser
@@ -12,7 +9,7 @@ from kidney.cli.models import add_fcn_args, add_model_args, add_aug_args
 from kidney.cli.training import add_validation_args
 from kidney.datasets.kaggle import get_reader
 from kidney.datasets.online import create_data_loaders, read_boxes
-from kidney.datasets.transformers import create_weak_augmentation_transformers, create_strong_augmentation_transformers
+from kidney.datasets.transformers import get_transformers
 from kidney.experiments import save_experiment_info, FCNExperiment
 from kidney.log import get_logger
 
@@ -30,7 +27,6 @@ def main(params: AttributeDict):
     super_seed(params.seed)
 
     logger = get_logger(__file__)
-    input_image_size = if_none(params.model_input_size, get_dataset_input_size(params.dataset))
     fold_training = params.get("fold") is not None
 
     logger.info("creating dataset reader")
@@ -44,15 +40,7 @@ def main(params: AttributeDict):
         valid_keys = None
 
     logger.info("creating transformers")
-    transformers = {
-        "weak": create_weak_augmentation_transformers,
-        "strong": create_strong_augmentation_transformers
-    }[params.aug_pipeline](
-        image_key=params.model_input_image_key,
-        mask_key=params.model_input_mask_key,
-        image_size=input_image_size,
-        normalization=params.aug_normalization_method
-    )
+    transformers = get_transformers(params)
 
     logger.info("creating data loaders")
     loaders = create_data_loaders(
@@ -71,15 +59,6 @@ def main(params: AttributeDict):
     trainer.fit(model=FCNExperiment(params),
                 train_dataloader=loaders["train"],
                 val_dataloaders=loaders["valid"])
-
-
-def get_dataset_input_size(path: str) -> int:
-    _, folder = os.path.split(path)
-    try:
-        crop_size = int(folder.split("_")[-1])
-        return crop_size
-    except TypeError:
-        raise RuntimeError(f"cannot parse input image size from path string: {path}")
 
 
 if __name__ == '__main__':

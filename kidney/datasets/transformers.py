@@ -14,8 +14,12 @@ from monai.transforms import (
     Activations, AsDiscrete, AsChannelFirstd, AddChanneld,
     NormalizeIntensityd, MapTransform, KeysCollection
 )
+from pytorch_lightning.utilities import AttributeDict
 from zeus.core import AutoName
+from zeus.utils import if_none
 
+from kidney.datasets.utils import get_dataset_input_size
+from kidney.parameters import requires
 from kidney.utils.image import scale_intensity_tensor, channels_last
 
 
@@ -357,3 +361,28 @@ class AlbuAdapter:
             self.mask_key: output["mask"]
         }
         return adapted
+
+
+@requires([
+    "model_input_size",
+    "model_input_image_key",
+    "model_input_mask_key",
+    "aug_pipeline",
+    "aug_normalization_method"
+])
+def get_transformers(params: AttributeDict) -> Transformers:
+    try:
+        return {
+            "weak": create_weak_augmentation_transformers,
+            "strong": create_strong_augmentation_transformers
+        }[params.aug_pipeline](
+            image_key=params.model_input_image_key,
+            mask_key=params.model_input_mask_key,
+            image_size=if_none(
+                params.model_input_size,
+                get_dataset_input_size(params.dataset)
+            ),
+            normalization=params.aug_normalization_method
+        )
+    except KeyError:
+        raise ValueError(f"unknown pipeline name: {params.aug_pipeline}")
