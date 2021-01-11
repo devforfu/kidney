@@ -88,6 +88,7 @@ class BaseExperiment(pl.LightningModule):  # noqa
             self.logger.experiment.log(
                 compute_average_metrics(outputs, suffix="avg_trn_")
             )
+            self.logger.experiment.log({"current_epoch": self.current_epoch})
 
     def validation_epoch_end(self, outputs: List[Any]) -> None:
         avg_val_metrics = compute_average_metrics(outputs, suffix="avg_")
