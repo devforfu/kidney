@@ -168,3 +168,7 @@ def scale_intensity_tensor(tensor: torch.Tensor, scale_range: Tuple[float, float
     tensor.sub_(lo).div_(hi - lo)
     tensor.mul_(range_hi - range_lo).add_(range_lo)
     return tensor
+
+
+def pil_read_image(path: str) -> np.array:
+    return np.asarray(PIL.Image.open(path))
