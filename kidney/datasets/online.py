@@ -1,32 +1,30 @@
-import random
 from collections import OrderedDict
-from functools import reduce
-from itertools import chain, product
-from typing import List, Dict, Callable, Optional, Set
+from typing import List, Dict, Callable, Optional
 
 import numpy as np
-from monai.data import list_data_collate
-from torch.utils.data import Dataset, DataLoader
-from zeus.utils import list_files
+from torch.utils.data import Dataset
 
 from kidney.datasets.kaggle import DatasetReader, SampleType
 from kidney.datasets.transformers import Transformers
+from kidney.datasets.utils import create_train_valid_data_loaders
+from kidney.utils.image import pil_read_image
 from kidney.utils.mask import rle_decode
-from kidney.utils.tiff import read_tiff_crop
 
 
-class OnlineCroppingDataset(Dataset):
+class OfflineCroppedDataset(Dataset):
 
     def __init__(
         self,
         reader: DatasetReader,
         samples: List[Dict],
-        transform: Optional[Callable] = None
+        transform: Optional[Callable] = None,
+        read_image_fn: Callable = pil_read_image
     ):
         super().__init__()
         self.reader = reader
         self.samples = samples
         self.transform = transform
+        self.read_image_fn = read_image_fn
 
     def __len__(self):
         return len(self.samples)
@@ -34,9 +32,9 @@ class OnlineCroppingDataset(Dataset):
     def __getitem__(self, item: int) -> Dict:
         sample = self.samples[item]
         meta = self.reader.fetch_meta(sample["key"])
-        x1, y1, x2, y2 = box = sample["box"]
+        x1, y1, x2, y2 = sample["box"]
         mask_crop = rle_decode(sample["rle_encoded"], shape=(y2 - y1, x2 - x1))
-        image = read_tiff_crop(meta["tiff"], box)
+        image = self.read_image_fn(meta["png"])
         sample = {"img": image.astype(np.float32), "seg": mask_crop.astype(np.float32)}
         return sample if self.transform is None else self.transform(sample)
 
@@ -51,56 +49,21 @@ def create_data_loaders(
     batch_size: int = 4,
 ) -> OrderedDict:
 
-    keys = reader.get_keys(SampleType.Labeled)
-    if train_keys is None and valid_keys is None:
-        valid_keys = [random.choice(keys)]
-        train_keys = [key for key in keys if key not in valid_keys]
-    elif train_keys is None and valid_keys is not None:
-        train_keys = [key for key in keys if key not in valid_keys]
-    elif train_keys is not None and valid_keys is None:
-        valid_keys = [key for key in keys if key not in train_keys]
-
-    check_disjoint_subsets(set(keys), set(train_keys), set(valid_keys))
-
-    loaders = OrderedDict()
-    for subset, keys in (
-        ("train", train_keys),
-        ("valid", valid_keys)
-    ):
-        samples_subset = [sample for sample in samples if sample["key"] in keys]
-        loaders[subset] = DataLoader(
-            dataset=OnlineCroppingDataset(
-                reader=reader,
-                samples=samples_subset,
-                transform=getattr(transformers, subset, None)
-            ),
-            batch_size=batch_size,
-            shuffle=subset == "train",
-            num_workers=num_workers,
-            collate_fn=list_data_collate
+    def dataset_factory(name: str, subset_samples: List[Dict]) -> Dataset:
+        transform = getattr(transformers, name, None)
+        return OfflineCroppedDataset(
+            reader=reader,
+            samples=subset_samples,
+            transform=transform
         )
-    return loaders
 
-
-def read_boxes(folder: str) -> List[Dict]:
-    """Reads pre-generated sliding window boxes from JSONL files."""
-
-    import srsly
-    return list(chain(*[srsly.read_jsonl(fn) for fn in list_files(folder)]))
-
-
-def check_disjoint_subsets(superset: Set, *subsets: Set):
-    """Checks if given `subsets` are true subsets of `origin` and don't intersect
-    with each other.
-
-    Note that this function becomes very computationally expensive as the number of
-    subsets increases.
-    """
-    joined = reduce(lambda x, y: set.union(x, y), subsets, set())
-    if superset != joined:
-        raise ValueError("the union of subsets is not equal to the superset")
-    for a, b in product(subsets, subsets):
-        if a is b:
-            continue
-        if a.intersection(b):
-            raise ValueError(f"subsets are not disjoint: {a} and {b}")
+    return create_train_valid_data_loaders(
+        keys=reader.get_keys(SampleType.Labeled),
+        transformers=transformers,
+        dataset_factory=dataset_factory,
+        samples=samples,
+        train_keys=train_keys,
+        valid_keys=valid_keys,
+        num_workers=num_workers,
+        batch_size=batch_size
+    )

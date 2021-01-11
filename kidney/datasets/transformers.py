@@ -1,24 +1,23 @@
 import abc
 from dataclasses import dataclass
-from enum import auto, Enum
+from enum import auto
 from typing import Union, Tuple, Callable, Dict, Mapping, Hashable
 
 import albumentations as A
-import torch
 import numpy as np
+import torch
 from albumentations.pytorch import ToTensorV2
 from monai.data import PILReader
 from monai.transforms import (
     Compose, RandCropByPosNegLabeld, RandSpatialCropSamplesd,
     LoadImaged, ScaleIntensityd, RandRotate90d, ToTensord,
     Activations, AsDiscrete, AsChannelFirstd, AddChanneld,
-    NormalizeIntensityd, MapTransform, KeysCollection
+    MapTransform, KeysCollection
 )
 from pytorch_lightning.utilities import AttributeDict
 from zeus.core import AutoName
 from zeus.utils import if_none
 
-from kidney.datasets.utils import get_dataset_input_size
 from kidney.parameters import requires
 from kidney.utils.image import scale_intensity_tensor, channels_last
 
@@ -371,6 +370,7 @@ class AlbuAdapter:
     "aug_normalization_method"
 ])
 def get_transformers(params: AttributeDict) -> Transformers:
+    from kidney.datasets.utils import get_dataset_input_size
     try:
         return {
             "weak": create_weak_augmentation_transformers,
