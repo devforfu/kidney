@@ -1,0 +1,19 @@
+--dataset=/mnt/fast/data/kidney_images_1024
+--aug_pipeline=strong
+--loss_name=bce_logits
+--metrics=dice:sigmoid=True
+--learning_rate=1e-6
+--scheduler_name=one_cycle
+--scheduler_interval=step
+--scheduler_config={"max_lr": 1e-3, "pct_start": 0.3}
+--model_input_size=256
+--max_epochs=100
+--batch_size=60
+--num_workers=12
+--gpus=0
+--precision=16
+--wandb_logging_enabled
+--checkpoints_enabled
+--checkpoints_metric=avg_val_loss
+--smp_model_type=unet
+--smp_model_config={"encoder_name": "resnet50"}
