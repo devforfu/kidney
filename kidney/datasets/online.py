@@ -1,30 +1,33 @@
+import random
 from collections import OrderedDict
-from typing import List, Dict, Callable, Optional
+from functools import reduce
+from itertools import chain, product
+from typing import List, Dict, Callable, Optional, Set
 
 import numpy as np
-from torch.utils.data import Dataset
+from monai.data import list_data_collate
+from torch.utils.data import Dataset, DataLoader
+from zeus.utils import list_files
 
 from kidney.datasets.kaggle import DatasetReader, SampleType
 from kidney.datasets.transformers import Transformers
-from kidney.datasets.utils import create_train_valid_data_loaders
-from kidney.utils.image import pil_read_image
+from kidney.datasets.utils import check_disjoint_subsets, train_valid_keys_split, create_train_valid_data_loaders
 from kidney.utils.mask import rle_decode
+from kidney.utils.tiff import read_tiff_crop
 
 
-class OfflineCroppedDataset(Dataset):
+class OnlineCroppingDataset(Dataset):
 
     def __init__(
         self,
         reader: DatasetReader,
         samples: List[Dict],
-        transform: Optional[Callable] = None,
-        read_image_fn: Callable = pil_read_image
+        transform: Optional[Callable] = None
     ):
         super().__init__()
         self.reader = reader
         self.samples = samples
         self.transform = transform
-        self.read_image_fn = read_image_fn
 
     def __len__(self):
         return len(self.samples)
@@ -32,9 +35,9 @@ class OfflineCroppedDataset(Dataset):
     def __getitem__(self, item: int) -> Dict:
         sample = self.samples[item]
         meta = self.reader.fetch_meta(sample["key"])
-        x1, y1, x2, y2 = sample["box"]
+        x1, y1, x2, y2 = box = sample["box"]
         mask_crop = rle_decode(sample["rle_encoded"], shape=(y2 - y1, x2 - x1))
-        image = self.read_image_fn(meta["png"])
+        image = read_tiff_crop(meta["tiff"], box)
         sample = {"img": image.astype(np.float32), "seg": mask_crop.astype(np.float32)}
         return sample if self.transform is None else self.transform(sample)
 
@@ -51,7 +54,7 @@ def create_data_loaders(
 
     def dataset_factory(name: str, subset_samples: List[Dict]) -> Dataset:
         transform = getattr(transformers, name, None)
-        return OfflineCroppedDataset(
+        return OnlineCroppingDataset(
             reader=reader,
             samples=subset_samples,
             transform=transform
@@ -67,3 +70,26 @@ def create_data_loaders(
         num_workers=num_workers,
         batch_size=batch_size
     )
+
+    # keys = reader.get_keys(SampleType.Labeled)
+    # train_keys, valid_keys = train_valid_keys_split(keys, train_keys,  valid_keys)
+    # check_disjoint_subsets(set(keys), set(train_keys), set(valid_keys))
+    #
+    # loaders = OrderedDict()
+    # for subset, keys in (
+    #     ("train", train_keys),
+    #     ("valid", valid_keys)
+    # ):
+    #     samples_subset = [sample for sample in samples if sample["key"] in keys]
+    #     loaders[subset] = DataLoader(
+    #         dataset=OnlineCroppingDataset(
+    #             reader=reader,
+    #             samples=samples_subset,
+    #             transform=getattr(transformers, subset, None)
+    #         ),
+    #         batch_size=batch_size,
+    #         shuffle=subset == "train",
+    #         num_workers=num_workers,
+    #         collate_fn=list_data_collate
+    #     )
+    # return loaders

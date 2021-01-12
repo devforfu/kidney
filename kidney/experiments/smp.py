@@ -11,8 +11,9 @@ from kidney.cli.lightning import make_trainer_init_params
 from kidney.cli.models import add_model_args, add_aug_args, add_smp_args
 from kidney.cli.training import add_validation_args
 from kidney.datasets.kaggle import get_reader
-from kidney.datasets.online import create_data_loaders, read_boxes
+from kidney.datasets.offline import create_data_loaders
 from kidney.datasets.transformers import get_transformers
+from kidney.datasets.utils import read_boxes
 from kidney.experiments import save_experiment_info, BaseExperiment
 from kidney.log import get_logger
 from kidney.models.smp import create_smp_model

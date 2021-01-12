@@ -10,7 +10,7 @@ import srsly
 from distributed import Client
 
 from kidney.datasets.kaggle import get_reader, SampleType, DatasetReader, outlier
-from kidney.datasets.online import read_boxes
+from kidney.datasets.offline import read_boxes
 from kidney.inference.window import SlidingWindowsGenerator
 from kidney.log import get_logger
 # from kidney.utils import rle
