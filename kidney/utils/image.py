@@ -138,6 +138,7 @@ def compute_image_sizes(root: str) -> Set[Tuple[int, ...]]:
 
 def channels_first(image: np.ndarray) -> np.ndarray:
     """Transforms image into channels-first format if it isn't yet."""
+
     if image.ndim == 2:
         return image[np.newaxis, :]
     elif image.ndim == 3:
@@ -156,6 +157,8 @@ def channels_last(image: np.ndarray) -> np.ndarray:
     elif image.ndim == 3:
         if image.shape[0] in (1, 3):
             return image.transpose((1, 2, 0))
+        if image.shape[-1] in (1, 3):
+            return image  # already in channels-last format
     raise ValueError(f"wrong image shape: {image.shape}")
 
 

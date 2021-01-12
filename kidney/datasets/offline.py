@@ -15,13 +15,12 @@ class OfflineCroppedDataset(Dataset):
 
     def __init__(
         self,
-        reader: DatasetReader,
         samples: List[Dict],
         transform: Optional[Callable] = None,
-        read_image_fn: Callable = pil_read_image
+        read_image_fn: Callable = pil_read_image,
+
     ):
         super().__init__()
-        self.reader = reader
         self.samples = samples
         self.transform = transform
         self.read_image_fn = read_image_fn
@@ -30,13 +29,19 @@ class OfflineCroppedDataset(Dataset):
         return len(self.samples)
 
     def __getitem__(self, item: int) -> Dict:
-        sample = self.samples[item]
-        meta = self.reader.fetch_meta(sample["key"])
-        x1, y1, x2, y2 = sample["box"]
-        mask_crop = rle_decode(sample["rle_encoded"], shape=(y2 - y1, x2 - x1))
-        image = self.read_image_fn(meta["png"])
-        sample = {"img": image.astype(np.float32), "seg": mask_crop.astype(np.float32)}
+        img, seg = self.read_images(self.samples[item])
+        sample = {"img": img, "seg": seg}
         return sample if self.transform is None else self.transform(sample)
+
+    def read_images(self, sample: Dict) -> Dict:
+        img = self.read_image_fn(sample["img"])
+        if "seg" in sample:
+            seg = self.read_image_fn(sample["seg"])
+        else:
+            seg = np.zeros(img.shape[:2])
+        img, seg = [arr.astype(np.float32) for arr in (img, seg)]
+        seg /= 255
+        return img, seg
 
 
 def create_data_loaders(
@@ -52,7 +57,6 @@ def create_data_loaders(
     def dataset_factory(name: str, subset_samples: List[Dict]) -> Dataset:
         transform = getattr(transformers, name, None)
         return OfflineCroppedDataset(
-            reader=reader,
             samples=subset_samples,
             transform=transform
         )

@@ -1,4 +1,4 @@
---dataset=/mnt/fast/data/kidney_boxes_1024
+--dataset=/mnt/fast/data/kidney_images_1024
 --aug_pipeline=strong
 --loss_name=bce_logits
 --metrics=dice:sigmoid=True

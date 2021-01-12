@@ -1,7 +1,7 @@
 from typing import Dict
 
-import torch.nn as nn
 import pytorch_lightning as pl
+import torch.nn as nn
 from pytorch_lightning.utilities import AttributeDict
 from zeus.core.random import super_seed
 
@@ -13,7 +13,7 @@ from kidney.cli.training import add_validation_args
 from kidney.datasets.kaggle import get_reader
 from kidney.datasets.offline import create_data_loaders
 from kidney.datasets.transformers import get_transformers
-from kidney.datasets.utils import read_boxes
+from kidney.datasets.utils import read_segmentation_info
 from kidney.experiments import save_experiment_info, BaseExperiment
 from kidney.log import get_logger
 from kidney.models.smp import create_smp_model
@@ -52,7 +52,7 @@ def main(params: AttributeDict):
         reader=reader,
         valid_keys=valid_keys,
         transformers=transformers,
-        samples=read_boxes(params.dataset),
+        samples=read_segmentation_info(params.dataset),
         num_workers=params.num_workers,
         batch_size=params.batch_size,
     )
