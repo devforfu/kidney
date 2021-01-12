@@ -35,12 +35,12 @@ def main(args: Namespace):
     try:
         client.run(lambda: basicConfig())
         bag = (
-            db.from_sequence(keys, npartitions=len(keys))
+            db.from_sequence(keys, npartitions=4)
             .map(partial(read_from_disk, reader=reader, boxes=boxes))
             .map(partial(cut_image, output_dir=args.output_dir))
         )
         logger.info("running dask pipeline")
-        bag.compute(scheduler="synchronous")
+        bag.compute()
     finally:
         logger.info("closing dask client")
         client.close()
