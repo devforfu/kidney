@@ -10,13 +10,11 @@ import srsly
 from distributed import Client
 
 from kidney.datasets.kaggle import get_reader, SampleType, DatasetReader, outlier
-from kidney.datasets.offline import read_boxes
+from kidney.datasets.utils import read_boxes
 from kidney.inference.window import SlidingWindowsGenerator
 from kidney.log import get_logger
-# from kidney.utils import rle
-from kidney.utils import rle
-from kidney.utils.mask import rle_decode, rle_numba_encode, rle_encode
-from kidney.utils.tiff import read_tiff, read_tiff_crop
+from kidney.utils.mask import rle_decode, rle_encode
+from kidney.utils.tiff import read_tiff_crop
 
 basicConfig()
 
@@ -110,10 +108,10 @@ def save_outputs(records: List[Dict], output_dir: str):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--window-size", type=int, default=1024)
-    parser.add_argument("--overlap", type=int, default=32)
-    parser.add_argument("--histogram-threshold", type=int, default=None)
-    parser.add_argument("--mask-threshold", type=int, default=None)
+    parser.add_argument("-w", "--window-size", type=int, default=1024)
+    parser.add_argument("-o", "--overlap", type=int, default=32)
+    parser.add_argument("-ht", "--histogram-threshold", type=int, default=None)
+    parser.add_argument("-mt", "--mask-threshold", type=int, default=None)
     parser.add_argument("--dask-scheduler", default=None)
     parser.add_argument("--output-dir", required=True)
     return parser.parse_args()
