@@ -1,5 +1,7 @@
 from typing import Tuple, Optional
 
+import streamlit as st
+
 
 def wide_screen_style(
     max_width: int,
@@ -25,3 +27,7 @@ def wide_screen_style(
 }}
 """
     return f"<style>{style}</style>"
+
+
+def set_wide_screen(size: int = 1600):
+    st.markdown(wide_screen_style(size), unsafe_allow_html=True)
