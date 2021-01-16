@@ -62,8 +62,8 @@ def preview_arrays(
     ax: Optional[Axis] = None,
     overlay_config: Optional[Dict] = None,
     title: str = '',
+    return_image: bool = False,
 ):
-    ax = axes(ax=ax)
     if image.shape[0] in (1, 3):
         image = image.transpose((1, 2, 0))
     overlay_config = (overlay_config or {}).copy()
@@ -75,6 +75,9 @@ def preview_arrays(
     if pred is not None:
         overlay_config["color"] = (0, 255, 0)
         image = overlay(image, pred, **overlay_config)
+    if return_image:
+        return image
+    ax = axes(ax=ax)
     ax.imshow(image)
     ax.axis("off")
     ax.set_title(title)
