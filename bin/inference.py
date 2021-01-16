@@ -2,6 +2,7 @@ import os
 from argparse import Namespace, ArgumentParser
 from typing import Tuple, Optional, Callable, Dict, List
 
+import PIL.Image
 import pandas as pd
 import pytorch_lightning as pl
 import torch
@@ -25,12 +26,17 @@ def main(args: Namespace):
         transform_input=meta["transformers"].test_preprocessing,
         transform_output=meta["transformers"].test_postprocessing
     )
+    encoder = (
+        rle_numba_encode
+        if prompt("decode masks? ", default="yes").strip().lower() == "yes"
+        else None
+    )
     predictions = inference.predict_from_reader(
         reader=get_reader(),
         sample_type=args.sample_type,
-        encoder=rle_numba_encode
+        encoder=encoder
     )
-    save_results(predictions, args.output_file)
+    save_results(predictions, args.output_file, encoder is not None)
 
 
 def checkpoint_picker(checkpoints_dir: str) -> Tuple[str, str]:
@@ -94,11 +100,22 @@ def inference_picker(
     return inference
 
 
-def save_results(predictions: List[Dict], output_file: str):
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    predictions_df = pd.DataFrame(predictions, columns=["id", "predicted"])
-    predictions_df.to_csv(output_file, index=False)
-    print("Predictions path:", output_file)
+def save_results(predictions: List[Dict], output_file: str, encoded: bool):
+    output_dir = os.path.dirname(output_file)
+    os.makedirs(output_dir, exist_ok=True)
+    if encoded:
+        predictions_df = pd.DataFrame(predictions, columns=["id", "predicted"])
+        predictions_df.to_csv(output_file, index=False)
+        print("Predictions path:", output_file)
+    else:
+        for result in predictions:
+            image_id = result["id"]
+            mask = result["predicted"]
+            if mask.max() == 1:
+                mask *= 255
+            filename = os.path.join(output_dir, f"{image_id}.png")
+            PIL.Image.fromarray(mask).save(filename, format="png")
+            print("Mask saved:", filename)
 
 
 def parse_args() -> Namespace:
