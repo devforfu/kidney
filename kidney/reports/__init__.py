@@ -23,12 +23,18 @@ def sidebar(reader: DatasetReader):
 
 
 @st.cache
-def read_image(meta: Dict, size: int):
+def read_image(meta: Dict, size: int, overlay_mask: bool = True):
     tiff = read_tiff(meta["tiff"])
     shape = tiff.shape[:2]
-    if meta.get("mask") is not None:
-        mask = rle_decode(meta["mask"], shape)
+    has_mask = meta.get("mask") is not None
+    mask = rle_decode(meta["mask"], shape) if has_mask else None
+    info = {"thumb_size": (size, size), "full_size": shape}
+    if has_mask and overlay_mask:
         thumb = overlay(tiff, mask, alpha=0.4, resize=(size, size))
+    elif has_mask:
+        thumb = cv.resize(tiff, (size, size))
+        mask = cv.resize(mask, (size, size))
+        info["mask"] = mask
     else:
         thumb = cv.resize(tiff, (size, size))
-    return thumb, {"thumb_size": (size, size), "full_size": shape}
+    return thumb, info
