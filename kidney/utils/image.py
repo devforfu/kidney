@@ -2,7 +2,7 @@ import fnmatch
 import glob
 import os
 import random
-from typing import Tuple, Optional, Dict, Set
+from typing import Tuple, Optional, Dict, Set, List
 
 import cv2 as cv
 import numpy as np
@@ -175,3 +175,29 @@ def scale_intensity_tensor(tensor: torch.Tensor, scale_range: Tuple[float, float
 
 def pil_read_image(path: str) -> np.array:
     return np.asarray(PIL.Image.open(path))
+
+
+def overlay_masks(
+    image: np.ndarray,
+    masks: List[Tuple[np.ndarray, Tuple[int, int, int]]],
+    convert_to_uint: bool = True
+):
+    assert image.ndim == 3
+    assert convert_to_uint or image.dtype == np.uint8
+
+    _verify_overlay_masks_input(image, masks)
+
+    image = image.astype(np.uint8) if convert_to_uint else image
+    base = image.copy()
+    for mask, color in masks:
+        image[mask == 1] = color
+    overlaid = cv.addWeighted(base, 0.5, image, 0.5, 0)
+    return overlaid
+
+
+def _verify_overlay_masks_input(image: np.ndarray, masks: List):
+    for mask, color in masks:
+        assert mask.ndim == 2
+        assert mask.dtype == np.uint8
+        assert mask.shape[:2] == image.shape[:2]
+        assert len(color) == 3
