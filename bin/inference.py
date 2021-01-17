@@ -1,4 +1,5 @@
 import os
+import sys
 from argparse import Namespace, ArgumentParser
 from typing import Tuple, Optional, Callable, Dict, List
 
@@ -66,8 +67,8 @@ def checkpoint_picker(checkpoints_dir: str) -> Tuple[str, str]:
 
     def pick_checkpoint(timestamp: str) -> Tuple[str, str]:
         result = checkpoints[timestamp]
-        print("available checkpoints:")
         filenames = result["checkpoints"]
+        print("available checkpoints:")
         for i, filename in enumerate(filenames, 1):
             print(f"{i})", os.path.basename(filename))
         index = prompt("pick checkpoint: ", default=str(len(filenames)))
@@ -101,21 +102,21 @@ def inference_picker(
 
 
 def save_results(predictions: List[Dict], output_file: str, encoded: bool):
-    output_dir = os.path.dirname(output_file)
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     if encoded:
         predictions_df = pd.DataFrame(predictions, columns=["id", "predicted"])
         predictions_df.to_csv(output_file, index=False)
         print("Predictions path:", output_file)
     else:
+        os.makedirs(output_file, exist_ok=True)
         for result in predictions:
             image_id = result["id"]
             mask = result["predicted"]
             if mask.max() == 1:
                 mask *= 255
-            filename = os.path.join(output_dir, f"{image_id}.png")
-            PIL.Image.fromarray(mask).save(filename, format="png")
-            print("Mask saved:", filename)
+            image_file = os.path.join(output_file, f"{image_id}.png")
+            PIL.Image.fromarray(mask).save(image_file, format="png")
+            print("Mask saved:", image_file)
 
 
 def parse_args() -> Namespace:
@@ -134,4 +135,7 @@ def parse_args() -> Namespace:
 
 
 if __name__ == '__main__':
-    main(parse_args())
+    try:
+        main(parse_args())
+    except KeyboardInterrupt:
+        sys.exit(1)
