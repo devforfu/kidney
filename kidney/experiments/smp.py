@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 
 import pytorch_lightning as pl
 import torch.nn as nn
@@ -9,7 +9,7 @@ from kidney.cli import entry_point, default_args
 from kidney.cli.basic import basic_parser
 from kidney.cli.lightning import make_trainer_init_params
 from kidney.cli.models import add_model_args, add_aug_args, add_smp_args
-from kidney.cli.training import add_validation_args
+from kidney.cli.training import add_validation_args, add_data_loader_extra_args
 from kidney.datasets.kaggle import get_reader
 from kidney.datasets.offline import create_data_loaders
 from kidney.datasets.transformers import get_transformers
@@ -25,7 +25,8 @@ from kidney.models.smp import create_smp_model
         add_smp_args,
         add_model_args,
         add_aug_args,
-        add_validation_args
+        add_validation_args,
+        add_data_loader_extra_args
     ]
 )
 def main(params: AttributeDict):
@@ -39,8 +40,8 @@ def main(params: AttributeDict):
 
     if fold_training:
         logger.info(f"running in K-fold training mode; the current fold: {params.fold}")
-        valid_keys = [params.fold] if fold_training else None
         params["fold"] = params.fold
+        valid_keys = parse_fold_keys(params.fold)
     else:
         valid_keys = None
 
@@ -55,6 +56,7 @@ def main(params: AttributeDict):
         samples=read_segmentation_info(params.dataset),
         num_workers=params.num_workers,
         batch_size=params.batch_size,
+        multiprocessing_context=params.data_loader_multiprocessing_context
     )
 
     trainer = pl.Trainer(**make_trainer_init_params(params))
@@ -64,6 +66,10 @@ def main(params: AttributeDict):
     trainer.fit(model=SMPExperiment(params),
                 train_dataloader=loaders["train"],
                 val_dataloaders=loaders["valid"])
+
+
+def parse_fold_keys(fold: str) -> List[str]:
+    return fold.split(";") if ";" in fold else [fold]
 
 
 class SMPExperiment(BaseExperiment):
