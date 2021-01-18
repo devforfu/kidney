@@ -151,7 +151,8 @@ def create_subset_data_loaders(
     dataset_factory: Callable[[str, List[Dict]], Dataset],
     num_workers: int = 0,
     batch_size: int = 4,
-    collate_fn: Callable = list_data_collate
+    collate_fn: Callable = list_data_collate,
+    **extra
 ) -> OrderedDict:
     loaders = OrderedDict()
     for subset in subsets:
@@ -161,7 +162,8 @@ def create_subset_data_loaders(
             batch_size=batch_size,
             shuffle=subset.shuffle,
             num_workers=num_workers,
-            collate_fn=collate_fn
+            collate_fn=collate_fn,
+            **extra
         )
     return loaders
 
@@ -175,6 +177,7 @@ def create_train_valid_data_loaders(
     valid_keys: Optional[List[str]] = None,
     num_workers: int = 0,
     batch_size: int = 4,
+    **extra
 ):
     train_keys, valid_keys = train_valid_keys_split(keys, train_keys, valid_keys)
     check_disjoint_subsets(set(keys), set(train_keys), set(valid_keys))
@@ -196,5 +199,6 @@ def create_train_valid_data_loaders(
         ],
         dataset_factory=dataset_factory,
         num_workers=num_workers,
-        batch_size=batch_size
+        batch_size=batch_size,
+        **extra
     )

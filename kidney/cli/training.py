@@ -123,3 +123,22 @@ def add_validation_args(parser: ArgumentParser) -> ArgumentParser:
         "implementation is up to specific training script."
     )
     return parser
+
+
+@extend_parser
+def add_data_loader_extra_args(parser: ArgumentParser) -> ArgumentParser:
+    """Extends arguments parser with additional DataLoader parameters."""
+
+    parser.add_argument(
+        "--data_loader_multiprocessing_context",
+        default="fork",
+        help=
+        "Overrides DataLoader multiprocessing context."
+    )
+    parser.add_argument(
+        "--data_loader_persistent_workers",
+        action="store_true",
+        help=
+        "Overrides DataLoader persistent workers."
+    )
+    return parser

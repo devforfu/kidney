@@ -52,6 +52,7 @@ def create_data_loaders(
     valid_keys: Optional[List[str]] = None,
     num_workers: int = 0,
     batch_size: int = 4,
+    **extra
 ) -> OrderedDict:
 
     def dataset_factory(name: str, subset_samples: List[Dict]) -> Dataset:
@@ -69,5 +70,6 @@ def create_data_loaders(
         train_keys=train_keys,
         valid_keys=valid_keys,
         num_workers=num_workers,
-        batch_size=batch_size
+        batch_size=batch_size,
+        **extra
     )
