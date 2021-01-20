@@ -61,9 +61,9 @@ class InferenceAlgorithm:
 
 @dataclass
 class SlidingWindowConfig:
-    window_size: int
-    overlap: int
-    max_batch_size: int
+    window_size: int = 1024
+    overlap: int = 32
+    max_batch_size: int = 32
     check_for_outliers: bool = True
     outliers_threshold: int = 1000
     transform_input: Optional[Callable] = None
