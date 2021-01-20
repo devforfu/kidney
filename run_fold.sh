@@ -12,13 +12,22 @@
 # CUDA-allocated memory is freed completely. So it could help to deal with memory
 # access errors.
 
+
+# -----------------
+# Global parameters
+# -----------------
+
 export PYTHONPATH=`pwd`
 export DATASET_ROOT=/mnt/fast/data/kidney
 export VALIDATION_SCHEME="`pwd`/validation/simple_k_fold_4.txt"
 export EXPERIMENT=smp
 export RUN_FILE=
 
-# Parsing keyword parameters; RUN_FILE is non-optional
+
+# -----------------------
+# Parsing input arguments
+# -----------------------
+
 while [ "$#" -gt 0 ]; do
   case $1 in
     --experiment) EXPERIMENT="${2}"; shift ;;
@@ -33,6 +42,11 @@ then
   echo "Error: cannot start validation if RUN_FILE parameter is unset."
   exit 1
 fi
+
+
+# ----------------
+# Helper functions
+# ----------------
 
 function get_valid_keys {
   train_keys=
@@ -77,22 +91,40 @@ function extend_run_file {
   done
 }
 
-if [ -f "${VALIDATION_SCHEME}" ]
-then
+function execute_python_script {
+  python run.py ${1} ${2}
+  return_status=$?
+  if [ $return_status -ne 0 ]; then
+    echo
+    echo "!!! Warning: training fold ${3} failed !!!"
+    echo
+  else
+    echo "The fold ${3} is done"
+  fi
+}
+
+
+# --------------------------
+# K-fold validation training
+# --------------------------
+
+if [ -f "${VALIDATION_SCHEME}" ]; then
+
   echo "Running K-fold training with validation scheme: ${VALIDATION_SCHEME}"
   unique_id=`random_string`
   fold=0
 
   while read line; do
 
+    if [ -z "$line" ]; then
+      continue
+    fi
+
     echo "Executing fold: ${fold}"
 
     valid_keys=$(get_valid_keys "${line}")
     filename=$(create_extended_run_args ${unique_id} ${fold} ${RUN_FILE})
     timestamp=$(generate_timestamp)
-
-    echo "Validation keys: ${valid_keys}"
-
     extra_arguments=(
       "--fold=${valid_keys}"
       "--tags=id:${unique_id},fold_no:${fold},valid_keys:${valid_keys},impl:${EXPERIMENT}"
@@ -103,13 +135,9 @@ then
 
     extend_run_file "${filename}" "${extra_arguments[@]}"
 
-    if $(python run.py ${EXPERIMENT} ${RUN_FILE}); then
-      echo "The fold ${fold} is done"
-    else
-      echo
-      echo "!!! Warning: training fold ${fold} failed !!!"
-      echo
-    fi
+    echo "Starting training with validation keys: ${valid_keys}"
+
+     execute_python_script ${EXPERIMENT} ${RUN_FILE} ${fold}
 
     fold=$((fold+1))
 
@@ -120,6 +148,8 @@ then
   echo "K-fold training '${EXPERIMENT}_${unique_id}' is done!"
 
 else
+
   echo "Error: validation scheme is not found: ${VALIDATION_SCHEME}"
   exit 1
+
 fi
