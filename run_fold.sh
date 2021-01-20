@@ -137,7 +137,7 @@ if [ -f "${VALIDATION_SCHEME}" ]; then
 
     echo "Starting training with validation keys: ${valid_keys}"
 
-    execute_python_script ${EXPERIMENT} ${RUN_FILE} ${fold}
+    execute_python_script ${EXPERIMENT} ${filename} ${fold}
 
     fold=$((fold+1))
 
