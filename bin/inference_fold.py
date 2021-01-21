@@ -22,7 +22,7 @@ def main(args: Namespace):
     os.makedirs(args.output_dir, exist_ok=True)
 
     for fold, files in enumerate(checkpoints, 1):
-        print(f"Inference with fold {fold} of {total}")
+        print(f"inference with fold {fold} of {total}")
         experiment, meta = load_experiment(
             factory=get_factory(args.factory_class),
             checkpoint_file=files["checkpoint"],
