@@ -1,6 +1,8 @@
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from operator import itemgetter
+from pathlib import Path
+from typing import Dict, Tuple
 
 import cv2 as cv
 import numpy as np
@@ -21,7 +23,6 @@ session_state = session.get(password=False)
 PREDICTIONS_DIR = os.path.join(os.environ["DATASET_ROOT"], "predictions")
 
 
-@st.cache
 def select_model_dir():
     st.subheader("Select predictions")
     model_dir = st.selectbox(label="Model", options=os.listdir(PREDICTIONS_DIR))
@@ -29,12 +30,23 @@ def select_model_dir():
 
 
 @st.cache
-def read_predictions(root: str) -> Dict[str, Dict[str, str]]:
-    pred_df, *dfs = [pd.read_csv(fn).set_index("id") for fn in list_files(root)]
-    for df in dfs:
-        pred_df = pd.merge(pred_df, df, left_index=True, right_index=True)
-    predictions = pred_df.to_dict(orient="index")
-    return predictions
+def read_predictions(root: str):
+    folds = []
+    for fn in list_files(root):
+        name = Path(fn).stem
+        order = int(name.split("_")[-1])
+        folds.append((order, fn))
+
+    acc, *rest = [
+        pd.read_csv(fn).set_index("id")
+        for _, fn in sorted(folds, key=itemgetter(0))
+    ]
+
+    for df in rest:
+        acc = pd.merge(acc, df, left_index=True, right_index=True)
+    acc.columns = range(len(folds))
+
+    return acc
 
 
 @dataclass
@@ -47,15 +59,17 @@ class CombinedPrediction:
 
 
 class MajorityVotePrediction(CombinedPrediction):
+    majority: float = 0.5
 
-    def __call__(self, sample_key: str):
+    def __call__(self, sample_key: str) -> np.ndarray:
         rle_masks = self.predictions[sample_key]
         n_folds = len(rle_masks)
+        majority_threshold = int(self.majority * n_folds)
         mask_pred = np.zeros(self.mask_size, dtype=np.uint8)
         for fold_name, mask in rle_masks.items():
             mask_pred += rle_decode(mask, self.mask_size)
-        mask_pred = (mask_pred > (n_folds // 2)).astype(np.uint8)
-        return mask_pred
+        mask_pred = mask_pred > majority_threshold
+        return mask_pred.astype(np.uint8)
 
 
 @with_password(session_state)
@@ -66,8 +80,9 @@ def main():
 
     meta = reader.fetch_meta(sample_key)
     image, info = read_image(meta, thumb_size, overlay_mask=False)
-    image_size = image.shape[:2]
-    predictor = MajorityVotePrediction(read_predictions(select_model_dir()), image_size)
+    image_size = info["full_size"]
+    rle_df = read_predictions(select_model_dir())
+    predictor = MajorityVotePrediction(rle_df.to_dict("index"), image_size)
 
     mask_pred = predictor(sample_key)
 
@@ -75,7 +90,7 @@ def main():
 
     if st.checkbox(label="Show Prediction", value=True):
         if mask_pred is not None:
-            mask_pred = cv.resize(mask_pred, image_size)
+            mask_pred = cv.resize(mask_pred, info["thumb_size"])
             color = st.color_picker(label="Prediction mask color", value="#0000ff")
             masks.append((mask_pred, hex_to_color(color)))
 
