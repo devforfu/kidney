@@ -1,8 +1,31 @@
+from operator import itemgetter
+from pathlib import Path
 from typing import Dict, Tuple
 
 import numpy as np
+import pandas as pd
+from zeus.utils.filesystem import list_files
 
 from kidney.utils.mask import rle_decode
+
+
+def read_predictions(root: str):
+    folds = []
+    for fn in list_files(root):
+        name = Path(fn).stem
+        order = int(name.split("_")[-1])
+        folds.append((order, fn))
+
+    acc, *rest = [
+        pd.read_csv(fn).set_index("id")
+        for _, fn in sorted(folds, key=itemgetter(0))
+    ]
+
+    for df in rest:
+        acc = pd.merge(acc, df, left_index=True, right_index=True)
+    acc.columns = range(len(folds))
+
+    return acc
 
 
 class CombinedPrediction:

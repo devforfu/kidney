@@ -28,22 +28,8 @@ def select_model_dir():
 
 @st.cache
 def read_predictions(root: str):
-    folds = []
-    for fn in list_files(root):
-        name = Path(fn).stem
-        order = int(name.split("_")[-1])
-        folds.append((order, fn))
-
-    acc, *rest = [
-        pd.read_csv(fn).set_index("id")
-        for _, fn in sorted(folds, key=itemgetter(0))
-    ]
-
-    for df in rest:
-        acc = pd.merge(acc, df, left_index=True, right_index=True)
-    acc.columns = range(len(folds))
-
-    return acc
+    from kidney.inference.prediction import read_predictions
+    return read_predictions(root).to_dict("index")
 
 
 @with_password(session_state)
@@ -55,10 +41,9 @@ def main():
     meta = reader.fetch_meta(sample_key)
     image, info = read_image(meta, thumb_size, overlay_mask=False)
     image_size = info["full_size"]
-    rle_df = read_predictions(select_model_dir())
 
     predictor = MajorityVotePrediction(
-        predictions=rle_df.to_dict("index"),
+        predictions=read_predictions(select_model_dir()),
         mask_size=image_size,
         majority=st.slider(
             label="Majority threshold",
