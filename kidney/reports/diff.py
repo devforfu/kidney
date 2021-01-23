@@ -1,22 +1,19 @@
 import os
-from dataclasses import dataclass
 from operator import itemgetter
 from pathlib import Path
-from typing import Dict, Tuple
 
 import cv2 as cv
-import numpy as np
 import pandas as pd
 import streamlit as st
 from zeus.utils import list_files
 
 from kidney.datasets.kaggle import get_reader
+from kidney.inference.prediction import MajorityVotePrediction
 from kidney.reports import session, sidebar, read_image
 from kidney.reports.auth import with_password
 from kidney.reports.colors import hex_to_color
 from kidney.reports.style import set_wide_screen
 from kidney.utils.image import overlay_masks
-from kidney.utils.mask import rle_decode
 
 session_state = session.get(password=False)
 
@@ -49,29 +46,6 @@ def read_predictions(root: str):
     return acc
 
 
-@dataclass
-class CombinedPrediction:
-    predictions: Dict
-    mask_size: Tuple[int, int]
-
-    def __call__(self, sample_key: str):
-        raise NotImplementedError()
-
-
-class MajorityVotePrediction(CombinedPrediction):
-    majority: float = 0.5
-
-    def __call__(self, sample_key: str) -> np.ndarray:
-        rle_masks = self.predictions[sample_key]
-        n_folds = len(rle_masks)
-        majority_threshold = int(self.majority * n_folds)
-        mask_pred = np.zeros(self.mask_size, dtype=np.uint8)
-        for fold_name, mask in rle_masks.items():
-            mask_pred += rle_decode(mask, self.mask_size)
-        mask_pred = mask_pred > majority_threshold
-        return mask_pred.astype(np.uint8)
-
-
 @with_password(session_state)
 def main():
     set_wide_screen()
@@ -82,7 +56,16 @@ def main():
     image, info = read_image(meta, thumb_size, overlay_mask=False)
     image_size = info["full_size"]
     rle_df = read_predictions(select_model_dir())
-    predictor = MajorityVotePrediction(rle_df.to_dict("index"), image_size)
+
+    predictor = MajorityVotePrediction(
+        predictions=rle_df.to_dict("index"),
+        mask_size=image_size,
+        majority=st.slider(
+            label="Majority threshold",
+            min_value=0.0, max_value=1.0,
+            value=0.5, step=0.25
+        )
+    )
 
     mask_pred = predictor(sample_key)
 
