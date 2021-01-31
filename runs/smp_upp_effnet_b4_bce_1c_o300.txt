@@ -1,0 +1,25 @@
+--dataset=/mnt/fast/data/kidney_images_o300_1024
+--aug_pipeline=strong
+--loss_name=bce_logits
+--metrics=dice:sigmoid=True
+--learning_rate=1e-6
+--scheduler_name=one_cycle
+--scheduler_interval=step
+--scheduler_config={"max_lr": 3e-4, "pct_start": 0.2}
+--model_input_size=256
+--max_epochs=100
+--batch_size=26
+--num_workers=12
+--gpus=0
+--precision=16
+--num_sanity_val_steps=0
+--wandb_logging_enabled
+--checkpoints_enabled
+--checkpoints_metric=avg_val_dice_metric
+--checkpoints_mode=max
+--early_stopping_enabled
+--early_stopping_patience=5
+--early_stopping_metric=avg_val_dice_metric
+--early_stopping_mode=max
+--smp_model_type=unet++
+--smp_model_config={"encoder_name": "efficientnet-b4"}
