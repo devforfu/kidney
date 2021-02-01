@@ -18,7 +18,7 @@
 --checkpoints_metric=avg_val_dice_metric
 --checkpoints_mode=max
 --early_stopping_enabled
---early_stopping_patience=5
+--early_stopping_patience=30
 --early_stopping_metric=avg_val_dice_metric
 --early_stopping_mode=max
 --smp_model_type=unet++
