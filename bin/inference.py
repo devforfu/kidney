@@ -29,7 +29,7 @@ def main(args: Namespace):
     )
     encoder = (
         rle_numba_encode
-        if prompt("decode masks? ", default="yes").strip().lower() == "yes"
+        if prompt("encode masks? ", default="yes").strip().lower() == "yes"
         else None
     )
     predictions = inference.predict_from_reader(
