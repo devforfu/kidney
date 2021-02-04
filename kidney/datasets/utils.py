@@ -42,18 +42,26 @@ def read_boxes(folder: str) -> List[Dict]:
     return list(chain(*[srsly.read_jsonl(fn) for fn in list_files(folder)]))
 
 
-def read_segmentation_info(folder: str) -> List[Dict]:
+def read_segmentation_info(folder: str, file_format: str = "bbox") -> List[Dict]:
     """Creates a list of segmentation dataset samples.
 
     The folder should include a plain list of PNG files with images and their
     segmentation masks cropped from the original large-scale images. Each file
     should have a unique identifier helping to match image and its mask,
-    as well as to extract additional information about sample. Example:
+    as well as to extract additional information about sample.
+
+    Example:
 
         /folder
             /img.<key>_<bbox>.png
             /seg.<key>_<bbox>.png
             ...
+
+    Another accepted format:
+
+        /folder
+            /img.<key>_<i>.png
+            /seg.<key>_<i>.png
 
     """
     def get_identifier(filename: str) -> str:
@@ -66,9 +74,15 @@ def read_segmentation_info(folder: str) -> List[Dict]:
     discovered = []
 
     for sample in unique_samples:
-        key, *bbox = sample.split("_")
-        bbox = [int(x) for x in bbox]
-        info = dict(key=key, box=bbox, img=os.path.join(folder, f"img.{sample}.png"))
+        info = {}
+        if file_format == "bbox":
+            key, *bbox = sample.split("_")
+            bbox = [int(x) for x in bbox]
+            info.update(dict(box=bbox, key=key))
+        elif file_format == "enum":
+            key, num = sample.split("_")
+            info.update(dict(num=int(num)))
+        info["img"] = os.path.join(folder, f"img.{sample}.png")
         seg_file = os.path.join(folder, f"seg.{sample}.png")
         if os.path.exists(seg_file):
             info["seg"] = seg_file

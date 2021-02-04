@@ -1,17 +1,12 @@
-import random
 from collections import OrderedDict
-from functools import reduce
-from itertools import chain, product
-from typing import List, Dict, Callable, Optional, Set
+from typing import List, Dict, Callable, Optional
 
 import numpy as np
-from monai.data import list_data_collate
-from torch.utils.data import Dataset, DataLoader
-from zeus.utils import list_files
+from torch.utils.data import Dataset
 
 from kidney.datasets.kaggle import DatasetReader, SampleType
 from kidney.datasets.transformers import Transformers
-from kidney.datasets.utils import check_disjoint_subsets, train_valid_keys_split, create_train_valid_data_loaders
+from kidney.datasets.utils import create_train_valid_data_loaders
 from kidney.utils.mask import rle_decode
 from kidney.utils.tiff import read_tiff_crop
 
@@ -70,26 +65,3 @@ def create_data_loaders(
         num_workers=num_workers,
         batch_size=batch_size
     )
-
-    # keys = reader.get_keys(SampleType.Labeled)
-    # train_keys, valid_keys = train_valid_keys_split(keys, train_keys,  valid_keys)
-    # check_disjoint_subsets(set(keys), set(train_keys), set(valid_keys))
-    #
-    # loaders = OrderedDict()
-    # for subset, keys in (
-    #     ("train", train_keys),
-    #     ("valid", valid_keys)
-    # ):
-    #     samples_subset = [sample for sample in samples if sample["key"] in keys]
-    #     loaders[subset] = DataLoader(
-    #         dataset=OnlineCroppingDataset(
-    #             reader=reader,
-    #             samples=samples_subset,
-    #             transform=getattr(transformers, subset, None)
-    #         ),
-    #         batch_size=batch_size,
-    #         shuffle=subset == "train",
-    #         num_workers=num_workers,
-    #         collate_fn=list_data_collate
-    #     )
-    # return loaders
