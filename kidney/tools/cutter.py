@@ -1,16 +1,25 @@
 """Cuts large segmentation images into smaller pieces."""
-import os
+import inspect
 from typing import Optional, Dict
 
+import PIL.Image
 import cv2 as cv
 import numpy as np
-import PIL.Image
 
-from kidney.datasets.kaggle import outlier, DatasetReader, SampleType
+from kidney.datasets.kaggle import outlier
 
 
 class OutliersFilter:
     """Excludes images that don't include relevant information."""
+
+    def __str__(self):
+        sig = inspect.signature(self.__init__)
+        init = ", ".join([
+            f"{p.name}={self.__dict__[p.name]}"
+            for p in sig.parameters.values()
+            if p.kind == p.POSITIONAL_OR_KEYWORD
+        ])
+        return f"{self.__class__.__name__}({init})"
 
     def __call__(self, image: np.ndarray, mask: Optional[np.ndarray] = None) -> bool:
         raise NotImplementedError()
@@ -51,6 +60,28 @@ class NoOpFilter(OutliersFilter):
         return False
 
 
+def cut_sample(
+    sample: Dict,
+    tile_size: int,
+    outliers_filter: OutliersFilter = NoOpFilter(),
+    reduce: int = 1,
+):
+    padded = pad_sample(
+        sample={"img": sample["image"], "seg": sample.get("mask")},
+        tile_size=tile_size,
+        reduce=reduce
+    )
+    crops = []
+    for i, (image, mask) in enumerate(zip(padded["img"], padded["seg"])):
+        if outliers_filter(image, mask):
+            continue
+        crop = dict(img=PIL.Image.fromarray(image))
+        if mask is not None:
+            crop["seg"] = PIL.Image.fromarray(mask)
+        crops.append(crop)
+    return crops
+
+
 def pad_sample(sample: Dict, tile_size: int, reduce: int = 1) -> Dict:
     img, seg = sample["img"], sample.get("seg")
 
@@ -75,25 +106,3 @@ def pad_sample(sample: Dict, tile_size: int, reduce: int = 1) -> Dict:
         seg = seg.transpose(0, 2, 1, 3).reshape(-1, sz, sz)
 
     return {"img": img, "seg": seg}
-
-
-def cut_sample(
-    sample: Dict,
-    tile_size: int,
-    outliers_filter: OutliersFilter = NoOpFilter(),
-    reduce: int = 1,
-):
-    padded = pad_sample(
-        sample={"img": sample["image"], "seg": sample["mask"]},
-        tile_size=tile_size,
-        reduce=reduce
-    )
-    crops = []
-    for i, (image, mask) in enumerate(zip(padded["img"], padded["seg"])):
-        if outliers_filter(image, mask):
-            continue
-        crop = dict(img=PIL.Image.fromarray(image))
-        if mask is not None:
-            crop["seg"] = PIL.Image.fromarray(mask)
-        crops.append(crop)
-    return crops
