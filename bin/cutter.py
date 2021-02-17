@@ -6,7 +6,7 @@ from os.path import join
 import logging
 
 from kidney.datasets.kaggle import get_reader, SampleType
-from kidney.tools.cutter import cut_sample, pad_sample, NoOpFilter, HistogramFilter
+from kidney.tools.cutter import cut_sample, pad_sample, NoOpFilter, HistogramFilter, SaturationFilter
 
 CONFIG = {
     "256px": {
@@ -71,6 +71,10 @@ def create_outliers_filter(name: str):
         return NoOpFilter()
     elif name == "hist":
         return HistogramFilter()
+    elif name == "hsv_40_200":
+        return SaturationFilter(min_pixels=200)
+    elif name == "hsv_40_800":
+        return SaturationFilter(min_pixels=800)
     raise NotImplementedError(name)
 
 
