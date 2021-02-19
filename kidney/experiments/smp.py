@@ -7,6 +7,7 @@ from zeus.core.random import super_seed
 
 from kidney.cli import entry_point, default_args
 from kidney.cli.basic import basic_parser
+from kidney.cli.dynamic import add_dynamically_defined_params
 from kidney.cli.lightning import make_trainer_init_params
 from kidney.cli.models import add_model_args, add_aug_args, add_smp_args
 from kidney.cli.training import add_validation_args, add_data_loader_extra_args
@@ -26,7 +27,13 @@ from kidney.models.smp import create_smp_model
         add_model_args,
         add_aug_args,
         add_validation_args,
-        add_data_loader_extra_args
+        add_data_loader_extra_args,
+        add_dynamically_defined_params([
+            {"name": "--file_format",
+             "default": "bbox",
+             "choices": ["bbox", "enum"],
+             "help": "Dataset files format"}
+        ])
     ]
 )
 def main(params: AttributeDict):
@@ -53,7 +60,7 @@ def main(params: AttributeDict):
         reader=reader,
         valid_keys=valid_keys,
         transformers=transformers,
-        samples=read_segmentation_info(params.dataset),
+        samples=read_segmentation_info(params.dataset, file_format=params.file_format),
         num_workers=params.num_workers,
         batch_size=params.batch_size,
         multiprocessing_context=params.data_loader_multiprocessing_context
