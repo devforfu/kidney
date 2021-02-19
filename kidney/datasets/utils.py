@@ -81,7 +81,7 @@ def read_segmentation_info(folder: str, file_format: str = "bbox") -> List[Dict]
             info.update(dict(box=bbox, key=key))
         elif file_format == "enum":
             key, num = sample.split("_")
-            info.update(dict(num=int(num)))
+            info.update(dict(num=int(num), key=key))
         info["img"] = os.path.join(folder, f"img.{sample}.png")
         seg_file = os.path.join(folder, f"seg.{sample}.png")
         if os.path.exists(seg_file):
