@@ -5,7 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from operator import itemgetter
 from os.path import join
-from typing import Optional, Dict, Callable, List, Any
+from typing import Optional, Dict, Callable, List, Any, Tuple
 
 import numpy as np
 import pytorch_lightning as pl
@@ -221,23 +221,93 @@ def create_metric(name: str) -> Callable:
             raise ValueError(f"cannot initialize '{name}' metric without 'key' parameter")
         return DictKeyGetter(kwargs["key"])
     elif metric == "dice":
-        return DictDiceMetric(**kwargs)
+        # return DictDiceMetric(**kwargs)
+        return DictMetric(DiceMetric(**kwargs), "dict_metric")
+    elif metric == "dice_coe_sigmoid":
+        return DictMetric(DiceCOESigmoid(**kwargs))
     raise ValueError(f"unknown metric name was requested: {name}")
 
 
-class DictDiceMetric:
+class DictMetric:
+    """Takes values from given dictionaries and forwards them into a metric function.
 
-    def __init__(self, **kwargs):
-        self.dice = DiceMetric(**kwargs)
+    A metric function should take two tensors: predicted and true segmentation mask.
+    The masks are stored in dictionaries. This facade extracts them and forwards into
+    a metric function.
+    """
+    def __init__(
+        self,
+        metric: Callable,
+        name: Optional[str] = None,
+        pred_key: str = "outputs",
+        true_key: str = "seg"
+    ):
+        name = name or getattr(metric, "__name__")
+        assert name is not None, "metric name is not available!"
+        self.metric = metric
+        self.name = name
+        self.pred_key = pred_key
+        self.true_key = true_key
 
     @property
     def __name__(self) -> str:
-        return "dice_metric"
+        return self.name
 
     def __call__(self, outputs: Dict, batch: Dict) -> torch.Tensor:
-        predicted_mask = outputs["outputs"]
-        true_mask = batch["seg"]
-        return self.dice(predicted_mask, true_mask)
+        pred = outputs[self.pred_key]
+        true = batch[self.true_key]
+        return self.metric(pred, true)
+
+
+class DiceCOESigmoid:
+
+    def __init__(
+        self,
+        loss_type: str = "jaccard",
+        threshold: Optional[float] = None,
+        axis: Tuple[int, ...] = (1, 2, 3),
+        smooth: float = 1e-10,
+    ):
+        self.loss_type = loss_type
+        self.threshold = threshold
+        self.axis = axis
+        self.smooth = smooth
+
+    @property
+    def __name__(self) -> str:
+        return "dice_coe_sigmoid"
+
+    def __call__(self, pred: torch.Tensor, gt: torch.Tensor) -> torch.Tensor:
+        pred = pred.sigmoid()
+        if self.threshold is not None:
+            pred = (pred > self.threshold).float()
+        intersect = torch.sum(pred * gt, dim=self.axis)
+        if self.loss_type == "jaccard":
+            a = torch.sum(pred * pred, dim=self.axis)
+            b = torch.sum(gt * gt, dim=self.axis)
+        elif self.loss_type == "sorensen":
+            a = torch.sum(pred, dim=self.axis)
+            b = torch.sum(gt, dim=self.axis)
+        else:
+            raise ValueError(f"unknown loss type: {self.loss_type}")
+        dice = (2. * intersect + self.smooth)/(a + b + self.smooth)
+        dice_avg = torch.mean(dice)
+        return dice_avg
+
+
+# class DictDiceMetric:
+#
+#     def __init__(self, **kwargs):
+#         self.dice = DiceMetric(**kwargs)
+#
+#     @property
+#     def __name__(self) -> str:
+#         return "dice_metric"
+#
+#     def __call__(self, outputs: Dict, batch: Dict) -> torch.Tensor:
+#         predicted_mask = outputs["outputs"]
+#         true_mask = batch["seg"]
+#         return self.dice(predicted_mask, true_mask)
 
 
 @dataclass

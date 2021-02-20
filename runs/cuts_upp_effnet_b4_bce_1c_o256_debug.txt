@@ -1,0 +1,19 @@
+--dataset=/mnt/fast/data/cuts/hsv_sat40_px200_256
+--file_format=enum
+--aug_pipeline=strong
+--loss_name=bce_logits
+--metrics=dice_coe_sigmoid:loss_type=sorensen,threshold=0.5
+--learning_rate=1e-6
+--scheduler_name=one_cycle
+--scheduler_interval=step
+--scheduler_config={"max_lr": 3e-4, "pct_start": 0.2}
+--model_input_size=256
+--max_epochs=100
+--batch_size=26
+--num_workers=0
+--data_loader_multiprocessing_context=none
+--gpus=0
+--precision=16
+--num_sanity_val_steps=0
+--smp_model_type=unet++
+--smp_model_config={"encoder_name": "efficientnet-b4"}

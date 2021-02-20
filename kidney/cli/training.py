@@ -132,6 +132,7 @@ def add_data_loader_extra_args(parser: ArgumentParser) -> ArgumentParser:
     parser.add_argument(
         "--data_loader_multiprocessing_context",
         default="fork",
+        type=multiprocessing_context,
         help=
         "Overrides DataLoader multiprocessing context."
     )
@@ -142,3 +143,7 @@ def add_data_loader_extra_args(parser: ArgumentParser) -> ArgumentParser:
         "Overrides DataLoader persistent workers."
     )
     return parser
+
+
+def multiprocessing_context(name: str):
+    return None if name.lower() == "none" else name
