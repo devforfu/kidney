@@ -215,13 +215,13 @@ def create_metrics(hparams: AttributeDict) -> List[Callable]:
 
 
 def create_metric(name: str) -> Callable:
-    metric, kwargs = parse_metric_name(name)
+    from kidney.cli import parse_callable_definition
+    metric, kwargs = parse_callable_definition(name, param_separator=",")
     if metric == "loss":
         if "key" not in kwargs:
             raise ValueError(f"cannot initialize '{name}' metric without 'key' parameter")
         return DictKeyGetter(kwargs["key"])
     elif metric == "dice":
-        # return DictDiceMetric(**kwargs)
         return DictMetric(DiceMetric(**kwargs), "dict_metric")
     elif metric == "dice_coe_sigmoid":
         return DictMetric(DiceCOESigmoid(**kwargs))
