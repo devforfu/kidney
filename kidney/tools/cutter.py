@@ -66,7 +66,7 @@ class MaskFilter(OutliersFilter):
 
     def __call__(self, image: np.ndarray, mask: Optional[np.ndarray] = None) -> bool:
         assert mask is not None, "the filter cannot work without mask provided"
-        return mask.sum() >= self.min_mask_pixels
+        return mask.sum() < self.min_mask_pixels
 
 
 class NoOpFilter(OutliersFilter):
