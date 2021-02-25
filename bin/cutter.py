@@ -1,12 +1,12 @@
+import logging
 import os
 from argparse import Namespace, ArgumentParser
 from logging import basicConfig
 from os.path import join
 
-import logging
-
+from kidney.cli import parse_callable_definition
 from kidney.datasets.kaggle import get_reader, SampleType
-from kidney.tools.cutter import cut_sample, pad_sample, NoOpFilter, HistogramFilter, SaturationFilter
+from kidney.tools.cutter import cut_sample, NoOpFilter, HistogramFilter, SaturationFilter, MaskFilter
 
 CONFIG = {
     "256px": {
@@ -66,16 +66,18 @@ def parse_args() -> Namespace:
     return args
 
 
-def create_outliers_filter(name: str):
-    if name == "noop":
-        return NoOpFilter()
-    elif name == "hist":
-        return HistogramFilter()
-    elif name == "hsv_40_200":
-        return SaturationFilter(min_pixels=200)
-    elif name == "hsv_40_800":
-        return SaturationFilter(min_pixels=800)
-    raise NotImplementedError(name)
+def create_outliers_filter(definition: str):
+    name, params = parse_callable_definition(definition)
+    try:
+        factory = {
+            "noop": NoOpFilter,
+            "hist": HistogramFilter,
+            "hsv": SaturationFilter,
+            "mask": MaskFilter,
+        }[name]
+    except KeyError:
+        raise NotImplementedError(f"unknown filtering function: {name}")
+    return factory(**params)
 
 
 if __name__ == '__main__':
