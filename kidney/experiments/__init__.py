@@ -260,6 +260,8 @@ class DictMetric:
 
 
 class DiceCOESigmoid:
+    # https://tensorlayer.readthedocs.io/en/latest/_modules/tensorlayer/cost.html#dice_coe
+    # https://www.kaggle.com/wrrosa/hubmap-tf-with-tpu-efficientunet-512x512-train
 
     def __init__(
         self,
