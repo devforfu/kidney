@@ -1,6 +1,6 @@
 """Cuts large segmentation images into smaller pieces."""
 import inspect
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 
 import PIL.Image
 import cv2 as cv
@@ -26,6 +26,7 @@ class OutliersFilter:
 
 
 class SaturationFilter(OutliersFilter):
+    """Checks image's saturation and excludes everything that doesn't have enough "bright" pixels."""
 
     def __init__(self, max_saturation: float = 40, min_pixels: int = 1000):
         self.max_saturation = max_saturation
@@ -45,6 +46,9 @@ class SaturationFilter(OutliersFilter):
 
 
 class HistogramFilter(OutliersFilter):
+    """Creates pixels histogram and filters all images that don't have enough variety
+    in image pixel values.
+    """
 
     def __init__(self, bin_size: int = 4, threshold: int = 1000):
         self.bin_size = bin_size
@@ -54,7 +58,19 @@ class HistogramFilter(OutliersFilter):
         return outlier(image, self.bin_size, self.threshold)
 
 
+class MaskFilter(OutliersFilter):
+    """Checks if a given sample includes any segmentation mask and the mask is large enough."""
+
+    def __init__(self, min_mask_pixels: Union[int, float] = 20):
+        self.min_mask_pixels = min_mask_pixels
+
+    def __call__(self, image: np.ndarray, mask: Optional[np.ndarray] = None) -> bool:
+        assert mask is not None, "the filter cannot work without mask provided"
+        return mask.sum() >= self.min_mask_pixels
+
+
 class NoOpFilter(OutliersFilter):
+    """No-op filter that doesn't filter anything at all."""
 
     def __call__(self, image: np.ndarray, mask: Optional[np.ndarray] = None) -> bool:
         return False
