@@ -1,3 +1,4 @@
+import ast
 from argparse import ArgumentParser
 from functools import reduce, wraps
 from typing import Callable, Optional, List
@@ -92,3 +93,36 @@ def semicolon_separated_list_of_strings(value: str) -> List[str]:
 def comma_separated_list_of_integers(value: str) -> List[int]:
     return list(map(int, comma_separated_list_of_strings(value)))
 
+
+def parse_callable_definition(
+    params: str,
+    name_separator: str = ":",
+    param_separator: str = ";",
+    value_separator: str = "=",
+):
+    """Parses a string that encodes a set of keyword arguments passed to a callable.
+
+    The parser is helpful to decode strings that define a callable name and a set of its
+    parameters. For example, it can be used to parse configurable metrics definitions
+    provided as CLI parameters.
+
+    Examples
+    --------
+    >>> parse_callable_definition("func:x=1;flag=True;items=[1,2,3]")
+    ("func", {"x": 1, "flag": True, "items": [1, 2, 3]})
+    """
+    try:
+        name, kwargs = params.split(name_separator)
+    except ValueError:
+        name, kwargs = params, {}
+    else:
+        parsed = {}
+        for kv in kwargs.split(param_separator):
+            k, v = kv.split(value_separator)
+            try:
+                v = ast.literal_eval(v)
+            except (ValueError, SyntaxError):
+                pass
+            parsed[k] = v
+        kwargs = parsed
+    return name, kwargs
