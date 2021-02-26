@@ -222,7 +222,7 @@ def create_metric(name: str) -> Callable:
             raise ValueError(f"cannot initialize '{name}' metric without 'key' parameter")
         return DictKeyGetter(kwargs["key"])
     elif metric == "dice":
-        return DictMetric(DiceMetric(**kwargs), "dict_metric")
+        return DictMetric(DiceMetric(**kwargs), "dice")
     elif metric == "dice_coe_sigmoid":
         return DictMetric(DiceCOESigmoid(**kwargs))
     raise ValueError(f"unknown metric name was requested: {name}")
@@ -256,7 +256,8 @@ class DictMetric:
     def __call__(self, outputs: Dict, batch: Dict) -> torch.Tensor:
         pred = outputs[self.pred_key]
         true = batch[self.true_key]
-        return self.metric(pred, true)
+        metric = self.metric(pred, true)
+        return metric
 
 
 class DiceCOESigmoid:

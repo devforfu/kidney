@@ -2,7 +2,7 @@
 --file_format=enum
 --aug_pipeline=strong
 --loss_name=bce_logits
---metrics=dice_coe_sigmoid:loss_type=sorensen,threshold=0.5;dice
+--metrics=dice_coe_sigmoid:loss_type=sorensen,threshold=0.5;dice:sigmoid=True
 --learning_rate=1e-6
 --scheduler_name=one_cycle
 --scheduler_interval=step
