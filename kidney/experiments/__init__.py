@@ -1,9 +1,7 @@
 import ast
-import inspect
 import os
 from collections import defaultdict
 from dataclasses import dataclass
-from operator import itemgetter
 from os.path import join
 from typing import Optional, Dict, Callable, List, Any, Tuple
 
@@ -11,7 +9,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-from monai.metrics import DiceMetric
+from monai.metrics import DiceMetric, compute_confusion_metric
 from pytorch_lightning.utilities import AttributeDict
 from segmentation_models_pytorch.losses import BINARY_MODE
 from segmentation_models_pytorch.losses.dice import DiceLoss
@@ -225,6 +223,14 @@ def create_metric(name: str) -> Callable:
         return DictMetric(DiceMetric(**kwargs), "dice")
     elif metric == "dice_coe_sigmoid":
         return DictMetric(DiceCOESigmoid(**kwargs))
+    elif metric == "recall":
+        return DictMetric(ConfusionMatrixMetric("recall"))
+    elif metric == "precision":
+        return DictMetric(ConfusionMatrixMetric("precision"))
+    elif metric == "accuracy":
+        return DictMetric(ConfusionMatrixMetric("accuracy"))
+    elif metric == "balanced_accuracy":
+        return DictMetric(ConfusionMatrixMetric("balanced accuracy"))
     raise ValueError(f"unknown metric name was requested: {name}")
 
 
@@ -260,21 +266,19 @@ class DictMetric:
         return metric
 
 
+@dataclass
 class DiceCOESigmoid:
-    # https://tensorlayer.readthedocs.io/en/latest/_modules/tensorlayer/cost.html#dice_coe
-    # https://www.kaggle.com/wrrosa/hubmap-tf-with-tpu-efficientunet-512x512-train
+    """A flexible dice metric implementation supporting various computation algorithms.
 
-    def __init__(
-        self,
-        loss_type: str = "jaccard",
-        threshold: Optional[float] = None,
-        axis: Tuple[int, ...] = (1, 2, 3),
-        smooth: float = 1e-10,
-    ):
-        self.loss_type = loss_type
-        self.threshold = threshold
-        self.axis = axis
-        self.smooth = smooth
+    References
+    ----------
+    [1] https://tensorlayer.readthedocs.io/en/latest/_modules/tensorlayer/cost.html#dice_coe
+    [2] https://www.kaggle.com/wrrosa/hubmap-tf-with-tpu-efficientunet-512x512-train
+    """
+    loss_type: str = "jaccard"
+    threshold: Optional[float] = None
+    axis: Tuple[int, ...] = (1, 2, 3)
+    smooth: float = 1e-10
 
     @property
     def __name__(self) -> str:
@@ -296,6 +300,21 @@ class DiceCOESigmoid:
         dice = (2. * intersect + self.smooth)/(a + b + self.smooth)
         dice_avg = torch.mean(dice)
         return dice_avg
+
+
+@dataclass
+class ConfusionMatrixMetric:
+    metric_name: str
+    sigmoid: bool = True
+
+    @property
+    def __name__(self):
+        return self.metric_name
+
+    def __call__(self, pred: torch.Tensor, gt: torch.Tensor) -> torch.Tensor:
+        activation = "sigmoid" if self.sigmoid else None
+        metric = compute_confusion_metric(pred, gt, activation=activation)
+        return metric
 
 
 # class DictDiceMetric:
