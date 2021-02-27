@@ -8,7 +8,6 @@ from kidney.datasets.kaggle import DatasetReader, SampleType
 from kidney.datasets.transformers import Transformers
 from kidney.datasets.utils import create_train_valid_data_loaders
 from kidney.utils.image import pil_read_image
-from kidney.utils.mask import rle_decode
 
 
 class OfflineCroppedDataset(Dataset):
@@ -40,7 +39,8 @@ class OfflineCroppedDataset(Dataset):
         else:
             seg = np.zeros(img.shape[:2])
         img, seg = [arr.astype(np.float32) for arr in (img, seg)]
-        seg /= 255
+        if seg.max() > 1:
+            seg /= 255
         return img, seg
 
 
