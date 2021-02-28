@@ -1,3 +1,4 @@
+import importlib
 import os
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -5,7 +6,6 @@ from operator import itemgetter
 from os.path import exists, join
 from typing import Type, Dict, Tuple, Optional
 
-import importlib
 import pytorch_lightning as pl
 import torch
 from zeus.torch_tools.checkpoints import find_latest_dir, find_best_file

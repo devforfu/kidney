@@ -18,4 +18,4 @@
 --num_workers=12
 --wandb_logging_enabled
 --checkpoints_enabled
---checkpoints_save_all
+--checkpoints_top_k=-1

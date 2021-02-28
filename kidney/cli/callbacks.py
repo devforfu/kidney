@@ -67,11 +67,4 @@ def add_checkpointing_args(parser: ArgumentParser) -> ArgumentParser:
         "save each epoch into a new file); if not provided, should be "
         "derived from other experiment's options."
     )
-    parser.add_argument(
-        "--checkpoints_save_all",
-        action="store_true",
-        help=
-        "Save a checkpoint for each training epoch without checking if a "
-        "training metric improved or not."
-    )
     return parser

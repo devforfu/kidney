@@ -23,7 +23,6 @@ from kidney.parameters import get_relevant_params, as_attribute_dict, requires
     "checkpoints_metric",
     "checkpoints_mode",
     "checkpoints_top_k",
-    "checkpoints_save_all",
     "wandb_logging_enabled",
     "timestamp",
     "tags",
@@ -72,24 +71,12 @@ def make_trainer_init_params(params: AttributeDict) -> AttributeDict:
                 params.timestamp,
                 params.checkpoints_metric
             )
-        if params.checkpoints_save_all:
-            model_checkpoint = ModelCheckpoint(
-                dirpath='%s/%s/checkpoints/%s' % (
-                    params.experiment_dir,
-                    params.experiment_name,
-                    params.timestamp,
-                ),
-                save_last=True
-            )
-            model_checkpoint.CHECKPOINT_NAME_LAST = "model-{epoch}"
-        else:
-            model_checkpoint = ModelCheckpoint(
-                filepath=filepath,
-                monitor=params.checkpoints_metric,
-                mode=params.checkpoints_mode,
-                save_top_k=params.checkpoints_top_k
-            )
-        callbacks.append(model_checkpoint)
+        callbacks.append(ModelCheckpoint(
+            filepath=filepath,
+            monitor=params.checkpoints_metric,
+            mode=params.checkpoints_mode,
+            save_top_k=params.checkpoints_top_k
+        ))
     else:
         config["checkpoint_callback"] = False
 
