@@ -3,7 +3,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass
 from os.path import join
-from typing import Optional, Dict, Callable, List, Any, Tuple
+from typing import Optional, Dict, Callable, List, Any, Tuple, Type
 
 import numpy as np
 import pytorch_lightning as pl
@@ -265,6 +265,12 @@ class DictMetric:
         metric = self.metric(pred, true)
         return metric
 
+    def __str__(self):
+        return repr(self)
+
+    def __repr__(self):
+        return f"{classname(self)}(metric=\"{self.name}\")"
+
 
 @dataclass
 class DiceCOESigmoid:
@@ -411,7 +417,3 @@ class CombinedDiceBCELoss(nn.Module):
         bce = self.bce_loss(y_pred, y_true)
         loss = dice * self.dice_weight + bce * (1 - self.dice_weight)
         return {"loss": loss, "dice": dice, "bce": bce}
-
-
-if __name__ == '__main__':
-    [parse_metric_name(name) for name in "loss:key=dice,loss:key=bce".split(",")]

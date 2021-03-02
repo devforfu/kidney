@@ -163,6 +163,10 @@ def load_experiment(factory, checkpoint_file, meta_file, strict=False):
     return experiment, meta
 
 
+def load_experiment_from_dict(factory, checkpoint_dict: Dict[str, str], **load_opts):
+    return load_experiment(factory, checkpoint_dict["checkpoint"], checkpoint_dict["meta"], **load_opts)
+
+
 def get_factory(import_path: str) -> Type[pl.LightningModule]:
     try:
         module_path, class_name = import_path.rsplit(".", 1)
