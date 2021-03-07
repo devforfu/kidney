@@ -269,7 +269,7 @@ class DictMetric:
         return repr(self)
 
     def __repr__(self):
-        return f"{classname(self)}(metric=\"{self.name}\")"
+        return f"{classname(self)}({self.metric})"
 
 
 @dataclass
@@ -319,23 +319,18 @@ class ConfusionMatrixMetric:
 
     def __call__(self, pred: torch.Tensor, gt: torch.Tensor) -> torch.Tensor:
         activation = "sigmoid" if self.sigmoid else None
-        metric = compute_confusion_metric(pred, gt, activation=activation)
+        metric = compute_confusion_metric(
+            pred, gt,
+            activation=activation,
+            metric_name=self.metric_name
+        )
         return metric
 
+    def __str__(self):
+        return repr(self)
 
-# class DictDiceMetric:
-#
-#     def __init__(self, **kwargs):
-#         self.dice = DiceMetric(**kwargs)
-#
-#     @property
-#     def __name__(self) -> str:
-#         return "dice_metric"
-#
-#     def __call__(self, outputs: Dict, batch: Dict) -> torch.Tensor:
-#         predicted_mask = outputs["outputs"]
-#         true_mask = batch["seg"]
-#         return self.dice(predicted_mask, true_mask)
+    def __repr__(self):
+        return f"{classname(self)}(metric=\"{self.metric_name}\", sigmoid={self.sigmoid})"
 
 
 @dataclass
