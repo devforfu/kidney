@@ -58,5 +58,5 @@ def read_tiff_crop(path: str, box: Tuple[int, int, int, int]) -> np.ndarray:
     identity = rasterio.Affine(1, 0, 0, 0, 1, 0)
     with rasterio.open(path, transform=identity) as dataset:
         window = Window.from_slices((y1, y2), (x1, x2))
-        crop = dataset.read([1, 2, 3], window=window)
+        crop = dataset.read(dataset.indexes, window=window)
     return crop
