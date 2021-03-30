@@ -40,7 +40,7 @@ def main(args: Namespace):
             .map(partial(cut_image, output_dir=args.output_dir))
         )
         logger.info("running dask pipeline")
-        bag.compute()
+        bag.compute(scheduler=args.dask_scheduler)
     finally:
         logger.info("closing dask client")
         client.close()
@@ -58,6 +58,9 @@ def read_from_disk(key: str, reader: DatasetReader, boxes: List[Dict]) -> Dict:
 def cut_image(sample: Dict, output_dir: str):
     logger = get_logger(__file__)
     key, img, seg = sample["key"], sample["image"], sample.get("mask")
+
+    if img.shape[-1] == 1:
+        img = img.squeeze(-1)
 
     for bbox in sample["boxes"]:
         x1, y1, x2, y2 = bbox["box"]
@@ -79,6 +82,7 @@ def parse_args() -> Namespace:
     parser.add_argument("--images_dir", required=True)
     parser.add_argument("--output_dir", required=True)
     parser.add_argument("--boxes_dir", required=True)
+    parser.add_argument("--dask_scheduler", required=None)
     return parser.parse_args()
 
 
