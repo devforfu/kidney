@@ -1,13 +1,20 @@
 from collections import OrderedDict
+from enum import auto
 from typing import List, Dict, Callable, Optional
 
 import numpy as np
 from torch.utils.data import Dataset
+from zeus.core import AutoName
 
 from kidney.datasets.kaggle import DatasetReader, SampleType
 from kidney.datasets.transformers import Transformers
 from kidney.datasets.utils import create_train_valid_data_loaders
 from kidney.utils.image import pil_read_image
+
+
+class GrayscaleProcessing(AutoName):
+    ConvertToRGB = auto()
+    AsIs = auto()
 
 
 class OfflineCroppedDataset(Dataset):
@@ -17,12 +24,13 @@ class OfflineCroppedDataset(Dataset):
         samples: List[Dict],
         transform: Optional[Callable] = None,
         read_image_fn: Callable = pil_read_image,
-
+        grayscale_processing: GrayscaleProcessing = GrayscaleProcessing.ConvertToRGB,
     ):
         super().__init__()
         self.samples = samples
         self.transform = transform
         self.read_image_fn = read_image_fn
+        self.grayscale_processing = grayscale_processing
 
     def __len__(self):
         return len(self.samples)
@@ -34,6 +42,8 @@ class OfflineCroppedDataset(Dataset):
 
     def read_images(self, sample: Dict) -> Dict:
         img = self.read_image_fn(sample["img"])
+        if img.ndim == 2 and self.grayscale_processing == GrayscaleProcessing.ConvertToRGB:
+            img = np.repeat(img[..., np.newaxis], 3, -1)
         if "seg" in sample:
             seg = self.read_image_fn(sample["seg"])
         else:
