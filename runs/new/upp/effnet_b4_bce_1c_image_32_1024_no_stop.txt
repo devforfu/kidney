@@ -1,0 +1,22 @@
+--dataset=/mnt/fast/data/kidney/images_32_1024
+--file_format=bbox
+--aug_pipeline=strong
+--loss_name=bce_logits
+--metrics=dice:sigmoid=True;recall;precision;accuracy;balanced_accuracy
+--learning_rate=1e-6
+--scheduler_name=one_cycle
+--scheduler_interval=step
+--scheduler_config={"max_lr": 3e-4, "pct_start": 0.3}
+--model_input_size=256
+--max_epochs=100
+--batch_size=26
+--num_sanity_val_steps=0
+--smp_model_type=unet++
+--smp_model_config={"encoder_name": "efficientnet-b4"}
+--gpus=0
+--precision=16
+--num_workers=12
+--wandb_logging_enabled
+--checkpoints_enabled
+--checkpoints_metric=avg_val_loss
+--checkpoints_top_k=-1
