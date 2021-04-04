@@ -98,7 +98,7 @@ class SlidingWindow(InferenceAlgorithm):
                     {
                         "box": box,
                         **self.transform_input({
-                            "img": image,
+                            "img": to_rgb(image),
                             "seg": np.zeros_like(image)
                         })
                     }
@@ -106,7 +106,7 @@ class SlidingWindow(InferenceAlgorithm):
                         (
                             [x1, y1, x2, y2],
                             dataset.read(
-                                [1, 2, 3],
+                                dataset.indexes,
                                 window=Window.from_slices((y1, y2), (x1, x2))
                             )
                         )
@@ -174,3 +174,11 @@ class SlidingWindow(InferenceAlgorithm):
                     array, (height, width),
                     interpolation=interpolation)
             mask[y1:y2, x1:x2] = array
+
+
+def to_rgb(image: np.ndarray) -> np.ndarray:
+    if image.shape[0] == 3:
+        return image
+    elif image.shape[0] == 1:
+        return np.repeat(image, 3, 0)
+    raise ValueError(f"shape error: {image.shape}")
