@@ -1,13 +1,10 @@
 import os
-from operator import itemgetter
-from pathlib import Path
+from os.path import join
 
 import cv2 as cv
-import pandas as pd
 import streamlit as st
-from zeus.utils import list_files
 
-from kidney.datasets.kaggle import get_reader
+from kidney.datasets.kaggle import KaggleKidneyDatasetReader
 from kidney.inference.prediction import MajorityVotePrediction
 from kidney.reports import session, sidebar, read_image
 from kidney.reports.auth import with_password
@@ -17,33 +14,53 @@ from kidney.utils.image import overlay_masks
 
 session_state = session.get(password=False)
 
-PREDICTIONS_DIR = os.path.join(os.environ["DATASET_ROOT"], "predictions")
+
+def get_root():
+    return os.environ.get("DATASET_ROOT", os.path.expanduser("~"))
 
 
-def select_model_dir():
-    st.subheader("Select predictions")
-    model_dir = st.selectbox(label="Model", options=os.listdir(PREDICTIONS_DIR))
-    return os.path.join(PREDICTIONS_DIR, model_dir)
+def select_predictions(root: str):
+    choices = []
+    for fn in os.listdir(root):
+        for fn2 in os.listdir(join(root, fn)):
+            choices.append(join(root, fn, fn2))
+    filename = st.selectbox("Select predictions", choices)
+    return filename, os.path.isdir(filename)
 
 
 @st.cache
-def read_predictions(root: str):
+def read_predictions(dirname: str):
     from kidney.inference.prediction import read_predictions
-    return read_predictions(root).to_dict("index")
+    return read_predictions(dirname).to_dict("index")
+
+
+@st.cache
+def read_single_prediction(filename: str):
+    from kidney.inference.prediction import read_single_prediction
+    return read_single_prediction(filename).to_dict("index")
 
 
 @with_password(session_state)
 def main():
     set_wide_screen()
-    reader = get_reader()
+    root = get_root()
+    reader = KaggleKidneyDatasetReader(join(root, "raw"))
     sample_key, thumb_size = sidebar(reader)
+    path, is_dir = select_predictions(root)
+
+    try:
+        predictions = read_predictions(path) if is_dir else read_single_prediction(path)
+    except Exception as e:
+        st.error(f"Cannot read predictions from location: {path}")
+        st.error(str(e))
+        return
 
     meta = reader.fetch_meta(sample_key)
     image, info = read_image(meta, thumb_size, overlay_mask=False)
     image_size = info["full_size"]
 
     predictor = MajorityVotePrediction(
-        predictions=read_predictions(select_model_dir()),
+        predictions=predictions,
         mask_size=image_size,
         majority=st.slider(
             label="Majority threshold",
@@ -59,7 +76,7 @@ def main():
     if st.checkbox(label="Show Prediction", value=True):
         if mask_pred is not None:
             mask_pred = cv.resize(mask_pred, info["thumb_size"])
-            color = st.color_picker(label="Prediction mask color", value="#0000ff")
+            color = st.color_picker(label="Prediction mask color", value="#00ff00")
             masks.append((mask_pred, hex_to_color(color)))
 
     if st.checkbox(label="Show Ground Truth", value=True):
@@ -67,10 +84,17 @@ def main():
             color = st.color_picker(label="Ground Truth mask color", value="#ff0000")
             masks.append((info["mask"], hex_to_color(color)))
 
+    if st.checkbox(label="Show Combined Masks", value=len(masks) == 2):
+        color = st.color_picker(label="Intersection color", value="#ffff00")
+        pred, gt = [mask for mask, color in masks]
+        combined = pred & gt
+        masks.append((combined, hex_to_color(color)))
+
     if masks:
         image = overlay_masks(image.copy(), masks, convert_to_uint=False)
 
     st.image(image, caption="Image with mask(s)")
+
 
 
 if __name__ == '__main__':

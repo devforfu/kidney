@@ -182,8 +182,10 @@ def overlay_masks(
     masks: List[Tuple[np.ndarray, Tuple[int, int, int]]],
     convert_to_uint: bool = True
 ):
-    assert image.ndim == 3
     assert convert_to_uint or image.dtype == np.uint8
+
+    if image.ndim == 2:
+        image = np.repeat(image[..., np.newaxis], 3, -1)
 
     _verify_overlay_masks_input(image, masks)
 

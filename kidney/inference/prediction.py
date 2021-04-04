@@ -9,6 +9,10 @@ from zeus.utils.filesystem import list_files
 from kidney.utils.mask import rle_decode
 
 
+def read_single_prediction(filename: str):
+    return pd.read_csv(filename).set_index("id")
+
+
 def read_predictions(root: str):
     folds = []
     for fn in list_files(root):
@@ -51,5 +55,6 @@ class MajorityVotePrediction(CombinedPrediction):
         mask_pred = np.zeros(self.mask_size, dtype=np.uint8)
         for fold_name, mask in rle_masks.items():
             mask_pred += rle_decode(mask, self.mask_size)
-        mask_pred = mask_pred >= majority_threshold
+        if n_folds > 1:
+            mask_pred = mask_pred >= majority_threshold
         return mask_pred.astype(np.uint8)
