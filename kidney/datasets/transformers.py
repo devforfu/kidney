@@ -1,7 +1,7 @@
 import abc
 from dataclasses import dataclass
 from enum import auto
-from typing import Union, Tuple, Callable, Dict, Mapping, Hashable
+from typing import Union, Tuple, Callable, Dict, Mapping, Hashable, Optional
 
 import albumentations as A
 import numpy as np
@@ -18,6 +18,7 @@ from pytorch_lightning.utilities import AttributeDict
 from zeus.core import AutoName
 from zeus.utils import if_none
 
+from kidney.datasets.color_transfer import ColorTransferAugmentation
 from kidney.parameters import requires
 from kidney.utils.image import scale_intensity_tensor, channels_last
 
@@ -261,7 +262,7 @@ def create_strong_augmentation_transformers(
     image_size: int,
     normalization: IntensityNormalization = IntensityNormalization.TorchvisionSegmentation,
     debug: bool = False
-):
+) -> Transformers:
     intensity_normalization = create_normalization(normalization, skip=debug)
 
     final_step = (
@@ -287,6 +288,56 @@ def create_strong_augmentation_transformers(
             hue=0.1,
             p=0.3
         ),
+        *final_step
+    ]
+
+    valid_steps = [
+        A.Lambda(name="channels_last", image=as_channels_last),
+        A.Resize(image_size, image_size),
+        *final_step
+    ]
+
+    return Transformers(
+        train=AlbuAdapter(A.Compose(train_steps), image_key, mask_key),
+        valid=AlbuAdapter(A.Compose(valid_steps), image_key, mask_key),
+        test_preprocessing=AlbuAdapter(A.Compose(valid_steps), image_key, mask_key),
+        test_postprocessing=SigmoidOutputAsMask()
+    )
+
+
+def create_color_augmentation_transformers(
+    image_key: str,
+    mask_key: str,
+    image_size: int,
+    normalization: IntensityNormalization = IntensityNormalization.TorchvisionSegmentation,
+    color_transfer: Optional[str] = None,
+    debug: bool = False,
+) -> Transformers:
+
+    intensity_normalization = create_normalization(normalization, skip=debug)
+
+    if color_transfer is not None:
+        color_transfer = ColorTransferAugmentation(color_transfer)
+
+    final_step = (
+        [A.NoOp()]
+        if debug
+        else [
+            intensity_normalization,
+            A.Lambda(name="add_channel_axis", mask=add_first_channel),
+            ToTensorV2()
+        ]
+    )
+
+    train_steps = [
+        A.Lambda(name="channels_last", image=as_channels_last),
+        A.Lambda(name="color_transfer", image=color_transfer) if color_transfer else A.NoOp(),
+        A.Resize(image_size, image_size),
+        A.VerticalFlip(p=0.5),
+        A.HorizontalFlip(p=0.5),
+        A.Rotate(limit=45, p=0.25),
+        A.ElasticTransform(p=0.5),
+        A.ToGray(p=0.25),
         *final_step
     ]
 
@@ -374,7 +425,8 @@ def get_transformers(params: AttributeDict) -> Transformers:
     try:
         return {
             "weak": create_weak_augmentation_transformers,
-            "strong": create_strong_augmentation_transformers
+            "strong": create_strong_augmentation_transformers,
+            "color": create_color_augmentation_transformers,
         }[params.aug_pipeline](
             image_key=params.model_input_image_key,
             mask_key=params.model_input_mask_key,
