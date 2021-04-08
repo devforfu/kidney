@@ -227,6 +227,8 @@ def create_metric(name: str) -> Callable:
         return DictMetric(ConfusionMatrixMetric("recall"))
     elif metric == "precision":
         return DictMetric(ConfusionMatrixMetric("precision"))
+    elif metric == "f1_score":
+        return DictMetric(ConfusionMatrixMetric("f1 score"))
     elif metric == "accuracy":
         return DictMetric(ConfusionMatrixMetric("accuracy"))
     elif metric == "balanced_accuracy":

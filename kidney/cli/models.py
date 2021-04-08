@@ -41,7 +41,7 @@ def add_monai_args(parser: ArgumentParser) -> ArgumentParser:
 
 @extend_parser
 def add_aug_args(parser: ArgumentParser) -> ArgumentParser:
-    parser.add_argument("--aug_pipeline", default="weak", choices=["weak", "strong"])
+    parser.add_argument("--aug_pipeline", default="weak", choices=["weak", "strong", "color"])
     parser.add_argument("--aug_normalization_method",
                         type=IntensityNormalization,
                         default=IntensityNormalization.TorchvisionSegmentation)
