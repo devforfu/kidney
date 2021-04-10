@@ -4,6 +4,7 @@ from enum import auto
 from typing import Union, Tuple, Callable, Dict, Mapping, Hashable, Optional
 
 import albumentations as A
+import copy
 import numpy as np
 import torch
 from albumentations.pytorch import ToTensorV2
@@ -355,6 +356,205 @@ def create_color_augmentation_transformers(
     )
 
 
+@dataclass
+class AugConfig:
+    prob: float = 1.0
+
+
+@dataclass
+class BCG(AugConfig):
+    brightness: float = 0.2
+    contrast: float = 0.2
+    gamma: Tuple[float, float] = (80, 120)
+
+
+@dataclass
+class Blur(AugConfig):
+    limit: int = 3
+
+
+@dataclass
+class Noise(AugConfig):
+    gauss_var: float = 0.001
+    affine_scale: Optional[float] = None
+
+
+@dataclass
+class Flip(AugConfig):
+    vertical: bool = True
+    horizontal: bool = True
+
+
+@dataclass
+class ShiftScaleRotate(AugConfig):
+    shift: Optional[float] = 0.0625
+    scale: Optional[float] = 0.1
+    rotate: Optional[int] = 45
+
+
+@dataclass
+class Elastic(AugConfig):
+    alpha: int = 1
+    sigma: int = 50
+    alpha_affine: int = 50
+
+
+def create_transformers_v2(
+    image_size: Optional[int] = None,
+    bcg: Optional[BCG] = BCG(),
+    blur: Optional[Blur] = Blur(),
+    noise: Optional[Noise] = Noise(),
+    flip: Optional[Flip] = Flip(),
+    elastic: Optional[Elastic] = Elastic(),
+    shift_scale_rotate: Optional[ShiftScaleRotate] = ShiftScaleRotate(),
+    color_transfer: Optional[ColorTransferAugmentation] = None,
+    normalization: IntensityNormalization = IntensityNormalization.TorchvisionSegmentation,
+    debug: bool = False,
+) -> Transformers:
+
+    train_steps, valid_steps = [], []
+
+    if image_size is not None:
+        train_steps.append(A.Resize(image_size, image_size))
+        valid_steps.append(A.Resize(image_size, image_size))
+
+    if bcg is not None:
+        train_steps.append(A.OneOf([
+            A.RandomBrightnessContrast(bcg.brightness, bcg.contrast, p=1),
+            A.RandomGamma(bcg.gamma, p=1)
+        ], p=bcg.prob))
+
+    if blur is not None:
+        train_steps.append(A.OneOf([
+            A.Blur(blur_limit=blur.limit),
+            A.MedianBlur(blur_limit=blur.limit)
+        ], p=blur.prob))
+
+    if noise is not None:
+        train_steps.append(A.OneOf(
+            [A.GaussNoise(var_limit=noise.gauss_var)]
+            if noise.affine_scale is None
+            else [
+                A.GaussNoise(var_limit=noise.gauss_var),
+                A.IAAAffine(scale=noise.affine_scale)
+            ],
+            p=noise.prob
+        ))
+
+    if flip is not None:
+        flips = []
+        if flip.vertical:
+            flips.append(A.VerticalFlip(p=flip.prob))
+        if flip.horizontal:
+            flips.append(A.HorizontalFlip(p=flip.prob))
+        train_steps.extend(flips)
+
+    if elastic is not None:
+        train_steps.append(A.ElasticTransform(
+            alpha=elastic.alpha,
+            sigma=elastic.sigma,
+            alpha_affine=elastic.alpha_affine,
+            p=elastic.prob
+        ))
+
+    if shift_scale_rotate is not None:
+        train_steps.append(A.ShiftScaleRotate(
+            shift_limit=shift_scale_rotate.shift,
+            scale_limit=shift_scale_rotate.scale,
+            rotate_limit=shift_scale_rotate.rotate,
+            p=shift_scale_rotate.prob
+        ))
+
+    if color_transfer is not None:
+        train_steps.append(A.Lambda(
+            name="color_transfer",
+            image=color_transfer,
+            p=color_transfer.prob
+        ))
+
+    final_step = (
+        [A.NoOp()]
+        if debug
+        else [
+            create_normalization(normalization, skip=debug),
+            A.Lambda(name="add_channel_axis", mask=add_first_channel),
+            ToTensorV2()
+        ]
+    )
+
+    train_steps.extend(final_step)
+    valid_steps.extend(copy.deepcopy(final_step))
+
+    return Transformers(
+        train=A.Compose(train_steps),
+        valid=A.Compose(valid_steps),
+        test_preprocessing=A.Compose(valid_steps),
+        test_postprocessing=SigmoidOutputAsMask()
+    )
+
+
+def create_color_strong_augmentation_transformers(
+    image_key: str,
+    mask_key: str,
+    image_size: int,
+    normalization: IntensityNormalization = IntensityNormalization.TorchvisionSegmentation,
+    color_transfer: Optional[str] = None,
+    debug: bool = False,
+) -> Transformers:
+    intensity_normalization = create_normalization(normalization, skip=debug)
+
+    if color_transfer is not None:
+        color_transfer = ColorTransferAugmentation(color_transfer)
+
+    final_step = (
+        [A.NoOp()]
+        if debug
+        else [
+            intensity_normalization,
+            A.Lambda(name="add_channel_axis", mask=add_first_channel),
+            ToTensorV2()
+        ]
+    )
+
+    train_steps = [
+        # A.Lambda(name="channels_last", image=as_channels_last),
+        # A.Lambda(name="color_transfer", image=color_transfer) if color_transfer else A.NoOp(),
+        A.Resize(image_size, image_size),
+        A.OneOf([
+            A.RandomBrightnessContrast(p=1),
+            A.RandomGamma(p=1)
+        ], p=0.5),
+        A.OneOf([
+            A.Blur(blur_limit=3, p=1),
+            A.MedianBlur(blur_limit=3, p=1)
+        ], p=0.5),
+        A.OneOf([
+            A.GaussNoise(var_limit=0.002, p=0.5),
+            A.IAAAffine(p=0.5)
+        ], p=0.25),
+        A.VerticalFlip(p=0.5),
+        A.HorizontalFlip(p=0.5),
+        A.Rotate(limit=45, p=0.25),
+        A.ElasticTransform(p=0.25),
+        A.ShiftScaleRotate(p=0.25),
+        A.ToGray(p=0.25),
+        *final_step
+    ]
+
+    valid_steps = [
+        # A.Lambda(name="channels_last", image=as_channels_last),
+        A.Resize(image_size, image_size),
+        *final_step
+    ]
+
+    return Transformers(
+        train=AlbuAdapter(A.Compose(train_steps), image_key, mask_key),
+        valid=AlbuAdapter(A.Compose(valid_steps), image_key, mask_key),
+        test_preprocessing=AlbuAdapter(A.Compose(valid_steps), image_key, mask_key),
+        test_postprocessing=SigmoidOutputAsMask()
+    )
+
+
 def create_normalization(normalization: IntensityNormalization, skip: bool = False):
     if skip or normalization == IntensityNormalization.NoOp:
         return A.NoOp()
@@ -422,11 +622,21 @@ class AlbuAdapter:
 ])
 def get_transformers(params: AttributeDict) -> Transformers:
     from kidney.datasets.utils import get_dataset_input_size
+
+    if params.aug_pipeline == "v2":
+        return create_transformers_v2(
+            image_size=if_none(
+                params.model_input_size,
+                get_dataset_input_size(params.dataset)
+            ),
+            normalization=params.aug_normalization_method
+        )
     try:
         return {
             "weak": create_weak_augmentation_transformers,
             "strong": create_strong_augmentation_transformers,
             "color": create_color_augmentation_transformers,
+            "color_strong": create_color_strong_augmentation_transformers,
         }[params.aug_pipeline](
             image_key=params.model_input_image_key,
             mask_key=params.model_input_mask_key,

@@ -30,6 +30,8 @@ class ColorTransfer:
             }, fp)
 
     def transfer_image(self, target: np.ndarray, as_rgb: bool = True):
+        old_type = target.dtype
+        target = target.astype(np.float32)
         channels = []
         for i, channel in enumerate(cv.split(target)):
             channel -= channel.mean()
@@ -40,7 +42,7 @@ class ColorTransfer:
         image = cv.merge(channels).astype(np.uint8)
         if as_rgb:
             image = cv.cvtColor(image, cv.COLOR_LAB2RGB)
-        return image
+        return image.astype(old_type)
 
 
 def read_lab(filename: str):
@@ -63,7 +65,5 @@ class ColorTransferAugmentation:
         self.prob = prob
 
     def __call__(self, image: np.ndarray, **kwargs) -> np.ndarray:
-        if random.random() < (1 - self.prob):
-            return image
         transfer = random.choice(self.transfers)
         return transfer.transfer_image(image)
