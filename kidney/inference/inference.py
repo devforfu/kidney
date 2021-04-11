@@ -12,6 +12,7 @@ from rasterio.windows import Window
 from zeus.torch_tools.utils import to_np
 
 from kidney.datasets.kaggle import outlier, DatasetReader, SampleType
+from kidney.datasets.transformers import AlbuAdapter, as_channels_last
 from kidney.inference.window import sliding_window_boxes
 
 
@@ -99,7 +100,7 @@ class SlidingWindow(InferenceAlgorithm):
                         "box": box,
                         **self.transform_input({
                             "img": to_rgb(image),
-                            "seg": np.zeros_like(image)
+                            "seg": np.zeros((size, size))
                         })
                     }
                     for box, image in (
@@ -139,7 +140,7 @@ class SlidingWindow(InferenceAlgorithm):
         return mask
 
     def transform_input(self, x: Dict) -> Dict:
-        return x if self.config.transform_input is None else self.config.transform_input(x)
+        return _transform_v2(x, self.config.transform_input)
 
     def transform_output(self, x: Dict) -> Dict:
         return x if self.config.transform_output is None else self.config.transform_output(x)
@@ -182,3 +183,22 @@ def to_rgb(image: np.ndarray) -> np.ndarray:
     elif image.shape[0] == 1:
         return np.repeat(image, 3, 0)
     raise ValueError(f"shape error: {image.shape}")
+
+
+def _transform_v2(x: Dict, transform: Callable, rename: Optional[Dict] = None) -> Dict:
+    """Support both types of transform callable.
+
+    The v2 transformation pipeline doesn't use adapter but forwards params directly.
+    """
+    # /mnt/fast/kaggle/submits/kidney/effnet_b0_image_alt_256_outliers_100_e16_best_dice_v2.csv
+    x["img"] = as_channels_last(x["img"])
+    out = (
+        x if transform is None else
+        transform(x) if isinstance(transform, AlbuAdapter) else
+        transform(image=x["img"], mask=x["seg"])
+    )
+    if rename is None:
+        rename = {"image": "img", "mask": "seg"}
+    elif not rename:
+        return out
+    return {rename.get(k, k): v for k, v in out.items()}
