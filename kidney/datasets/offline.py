@@ -4,6 +4,7 @@ from typing import List, Dict, Callable, Optional, Tuple, Type
 
 import cv2 as cv
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 from zeus.core import AutoName
 
@@ -79,10 +80,17 @@ class OfflineCroppedDatasetV2(Dataset):
 
     def __getitem__(self, item: int) -> Dict:
         image, mask = self.read_sample(item)
-        if self.transform is not None:
+        if self.transform is None:
+            return {"img": _float32(image), "seg": _float32(mask)}
+        else:
             transformed = self.transform(image=image, mask=mask)
-            return {self.keys_mapping.get(k, k): v.float() for k, v in transformed.items()}
-        return {"img": _float32(image), "seg": _float32(mask)}
+            transformed = {self.keys_mapping.get(k, k): v for k, v in transformed.items()}
+            image, mask = transformed["img"], transformed["seg"]
+            if torch.is_tensor(image):
+                image, mask = image.float(), mask.float()
+            else:
+                image, mask = _float32(image), _float32(mask)
+            return {"img": image, "seg": mask}
 
     def read_sample(self, item: int) -> Tuple[np.ndarray, np.ndarray]:
         image = self.read_image(item)

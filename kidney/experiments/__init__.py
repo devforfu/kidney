@@ -14,7 +14,8 @@ from pytorch_lightning.utilities import AttributeDict
 from segmentation_models_pytorch.losses import BINARY_MODE
 from segmentation_models_pytorch.losses.dice import DiceLoss
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler, ExponentialLR, CosineAnnealingLR, OneCycleLR  # noqa
+from torch.optim.lr_scheduler import _LRScheduler, ExponentialLR, CosineAnnealingLR, OneCycleLR, \
+    ReduceLROnPlateau  # noqa
 from zeus.utils import classname
 
 from kidney.models.fcn import create_fcn_model
@@ -184,6 +185,8 @@ def create_scheduler(optimizer: Optimizer, experiment: BaseExperiment) -> _LRSch
             total_steps=len(dl) * hparams.max_epochs,
             **config
         )
+    elif name_normalized == "reduce_lr":
+        scheduler = ReduceLROnPlateau(optimizer=optimizer, **config)
     else:
         raise ValueError(f"unknown optimizer: {name}")
     return scheduler
@@ -201,6 +204,9 @@ def create_loss(hparams: AttributeDict) -> Callable:
         return nn.BCEWithLogitsLoss()
     elif name_normalized == "bce_sigmoid":
         return nn.BCELoss()
+    elif name_normalized == "bce_jaccard":
+        from segmentation_models_pytorch.losses.jaccard import JaccardLoss
+        return JaccardLoss(mode="binary", from_logits=True)
     raise ValueError(f"unknown loss function: {hparams.loss_name}")
 
 

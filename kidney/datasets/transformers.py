@@ -56,14 +56,17 @@ class ImageNormalization(InputPreprocessor):
 
 class SigmoidOutputAsMask(OutputPostprocessor):
 
-    def __init__(self):
-        self.as_discrete = Compose([
-            Activations(sigmoid=True),
-            AsDiscrete(threshold_values=True)
-        ])
+    def __init__(self, as_discrete: bool = True, logit_thresh: float = 0.5):
+        transforms = [Activations(sigmoid=True)]
+        if as_discrete:
+            transforms.append(AsDiscrete(
+                threshold_values=True,
+                logit_thresh=logit_thresh
+            ))
+        self.logits_to_predictions = A.Compose(transforms)
 
     def prepare(self, output: Dict) -> Dict:
-        transformed = self.as_discrete(output["outputs"])
+        transformed = self.logits_to_predictions(output["outputs"])
         output.update({"outputs": transformed.squeeze()})
         return output
 
@@ -623,12 +626,11 @@ class AlbuAdapter:
 def get_transformers(params: AttributeDict) -> Transformers:
     from kidney.datasets.utils import get_dataset_input_size
 
+    image_size = params.model_input_size or get_dataset_input_size(params.dataset)
+
     if params.aug_pipeline == "v2":
         return create_transformers_v2(
-            image_size=if_none(
-                params.model_input_size,
-                get_dataset_input_size(params.dataset)
-            ),
+            image_size=image_size,
             normalization=params.aug_normalization_method
         )
     try:
@@ -640,10 +642,7 @@ def get_transformers(params: AttributeDict) -> Transformers:
         }[params.aug_pipeline](
             image_key=params.model_input_image_key,
             mask_key=params.model_input_mask_key,
-            image_size=if_none(
-                params.model_input_size,
-                get_dataset_input_size(params.dataset)
-            ),
+            image_size=image_size,
             normalization=params.aug_normalization_method
         )
     except KeyError:

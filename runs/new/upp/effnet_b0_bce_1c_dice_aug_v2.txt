@@ -1,4 +1,4 @@
---dataset=/mnt/fast/data/kidney/images_alt_256
+--dataset=/mnt/fast/data/kidney/alt_r4_s256_sat40_pix200_shift
 --file_format=enum
 --aug_pipeline=v2
 --loss_name=bce_logits
@@ -8,8 +8,8 @@
 --scheduler_interval=step
 --scheduler_config={"max_lr": 3e-4, "pct_start": 0.3}
 --model_input_size=256
---max_epochs=50
---batch_size=26
+--max_epochs=1000
+--batch_size=24
 --num_sanity_val_steps=0
 --smp_model_type=unet++
 --smp_model_config={"encoder_name": "efficientnet-b0"}
@@ -18,5 +18,10 @@
 --num_workers=12
 --wandb_logging_enabled
 --checkpoints_enabled
---checkpoints_metric=avg_val_loss
---checkpoints_top_k=-1
+--checkpoints_metric=avg_val_dice
+--checkpoints_mode=max
+--checkpoints_top_k=1
+--early_stopping_enabled
+--early_stopping_patience=30
+--early_stopping_metric=avg_val_dice
+--early_stopping_mode=max
