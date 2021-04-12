@@ -40,27 +40,28 @@ class BaseExperiment(pl.LightningModule):  # noqa
 
     @property
     def last_learning_rate(self) -> float:
-        return (
-            self.hparams.learning_rate
-            if self.scheduler is None
-            else self.scheduler.get_last_lr()[0]
-        )
+        if self.scheduler is None:
+            return self.hparams.learning_rate
+        elif isinstance(self.scheduler, ReduceLROnPlateau):
+            return getattr(self.scheduler, "_last_lr", self.hparams.learning_rate)
+        return self.scheduler.get_last_lr()[0]
 
     def configure_optimizers(self) -> Dict:
         opt = create_optimizer(self.model_parameters(), self.hparams)
         self.scheduler = create_scheduler(opt, self)
-        return (
-            {"optimizer": opt}
-            if self.scheduler is None
-            else
-            {
+        if self.scheduler is None:
+            return {"optimizer": opt}
+        else:
+            config = {
                 "optimizer": opt,
                 "lr_scheduler": {
                     "scheduler": self.scheduler,
                     "interval": self.hparams.scheduler_interval
                 }
             }
-        )
+            if isinstance(self.scheduler, ReduceLROnPlateau):
+                config["lr_scheduler"]["monitor"] = self.hparams.early_stopping_metric
+            return config
 
     def training_step(self, batch: Dict, batch_no: int) -> Dict:
         outputs = self(batch)
