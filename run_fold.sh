@@ -19,8 +19,8 @@
 
 export PYTHONPATH=`pwd`
 export DATASET_ROOT=/mnt/fast/data/kidney
-export VALIDATION_SCHEME="`pwd`/validation/simple_k_fold_4.txt"
 export EXPERIMENT=smp
+export VAL_NAME=simple_k_fold_4
 export RUN_FILE=
 
 
@@ -32,6 +32,7 @@ while [ "$#" -gt 0 ]; do
   case $1 in
     --experiment) EXPERIMENT="${2}"; shift ;;
     --run-file) RUN_FILE="${2}"; shift ;;
+    --val-name) VAL_NAME="${2}"; shift ;;
     *) echo "Unknown parameter: $1"; exit 1 ;;
   esac
   shift
@@ -43,6 +44,15 @@ then
   exit 1
 fi
 
+if [ -z "${VAL_NAME}" ]
+then
+  echo "Error: cannot start validation if VAL_NAME parameter is unset."
+  exit 1
+fi
+
+export VALIDATION_SCHEME="`pwd`/validation/${VAL_NAME}.txt"
+
+echo "Selected validation scheme: ${VALIDATION_SCHEME}"
 
 # ----------------
 # Helper functions

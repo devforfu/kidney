@@ -1,12 +1,12 @@
 --dataset=/mnt/fast/data/kidney/alt_r4_s256_sat40_pix200_shift
 --file_format=enum
 --aug_pipeline=v2
---loss_name=bce_logits
+--loss_name=bce_jaccard
 --metrics=dice:sigmoid=True;recall;precision;accuracy;balanced_accuracy;f1_score
---learning_rate=1e-3
+--learning_rate=0.0005
 --scheduler_name=reduce_lr
 --scheduler_interval=epoch
---scheduler_config={"mode": "min", "patience": 20, "factor": 0.5}
+--scheduler_config={"mode": "max", "patience": 10, "factor": 0.1}
 --model_input_size=256
 --max_epochs=1000
 --batch_size=16
@@ -22,6 +22,7 @@
 --checkpoints_mode=max
 --checkpoints_top_k=1
 --early_stopping_enabled
---early_stopping_patience=30
+--early_stopping_patience=20
 --early_stopping_metric=avg_val_dice
 --early_stopping_mode=max
+--fast_dev_run=True
