@@ -3,7 +3,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass
 from os.path import join
-from typing import Optional, Dict, Callable, List, Any, Tuple, Type
+from typing import Optional, Dict, Callable, List, Any, Tuple
 
 import numpy as np
 import pytorch_lightning as pl
@@ -38,13 +38,21 @@ class BaseExperiment(pl.LightningModule):  # noqa
     def model_parameters(self) -> List:
         return self.model.parameters()  # noqa
 
+    def model_weights(self) -> Dict:
+        return self.model.state_dict()
+
+    def load_weights(self, state_dict: Dict):
+        self.model.load_state_dict(state_dict)
+
+    def num_bad_epochs(self) -> int:
+        return getattr(self.scheduler, "num_bad_epochs", -1)
+
     @property
-    def last_learning_rate(self) -> float:
-        if self.scheduler is None:
+    def current_learning_rate(self) -> float:
+        try:
+            return [group["lr"] for group in self.optimizers().param_groups][0]
+        except (ValueError, KeyError, AttributeError, IndexError):
             return self.hparams.learning_rate
-        elif isinstance(self.scheduler, ReduceLROnPlateau):
-            return getattr(self.scheduler, "_last_lr", self.hparams.learning_rate)
-        return self.scheduler.get_last_lr()[0]
 
     def configure_optimizers(self) -> Dict:
         opt = create_optimizer(self.model_parameters(), self.hparams)
@@ -56,7 +64,7 @@ class BaseExperiment(pl.LightningModule):  # noqa
                 "optimizer": opt,
                 "lr_scheduler": {
                     "scheduler": self.scheduler,
-                    "interval": self.hparams.scheduler_interval
+                    "interval": self.hparams.scheduler_interval,
                 }
             }
             if isinstance(self.scheduler, ReduceLROnPlateau):
@@ -89,6 +97,8 @@ class BaseExperiment(pl.LightningModule):  # noqa
                 compute_average_metrics(outputs, suffix="avg_trn_")
             )
             self.logger.experiment.log({"current_epoch": self.current_epoch})
+            if self.num_bad_epochs() != -1:
+                self.logger.experiment.log({"num_bad_epochs": self.num_bad_epochs()})
 
     def validation_epoch_end(self, outputs: List[Any]) -> None:
         avg_val_metrics = compute_average_metrics(outputs, suffix="avg_")
@@ -112,7 +122,7 @@ class BaseExperiment(pl.LightningModule):  # noqa
         logging_steps = self.hparams.logging_steps
         if self.global_step % logging_steps == 0:
             self.logger.experiment.log({
-                "lr": self.last_learning_rate,
+                "lr": self.current_learning_rate,
                 "loss": (self.training_loss - self.logging_loss) / logging_steps
             })
             self.logging_loss = self.training_loss
