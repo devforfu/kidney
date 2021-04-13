@@ -19,6 +19,7 @@ from kidney.parameters import get_relevant_params, as_attribute_dict, requires
     "early_stopping_metric",
     "early_stopping_mode",
     "early_stopping_patience",
+    "early_stopping_best_weights",
     "checkpoints_enabled",
     "checkpoints_metric",
     "checkpoints_mode",
@@ -56,10 +57,13 @@ def make_trainer_init_params(params: AttributeDict) -> AttributeDict:
     callbacks = []
 
     if params.early_stopping_enabled:
+        from kidney.extensions.early_stopping import EarlyStopping
+        print("early stopping with best weights?", params.early_stopping_best_weights)
         callbacks.append(EarlyStopping(
             monitor=params.early_stopping_metric,
             mode=params.early_stopping_mode,
-            patience=params.early_stopping_patience
+            patience=params.early_stopping_patience,
+            restore_best_weights=params.early_stopping_best_weights,
         ))
 
     if params.checkpoints_enabled:

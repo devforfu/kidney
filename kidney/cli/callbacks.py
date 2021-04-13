@@ -32,6 +32,12 @@ def add_early_stopping_args(parser: ArgumentParser) -> ArgumentParser:
         type=int,
         help="Number of epochs to wait for metrics improvement until stopping."
     )
+    parser.add_argument(
+        "--early_stopping_best_weights",
+        default=False,
+        type=bool,
+        help="Restore best model weights if metric didn't improve."
+    )
     return parser
 
 
