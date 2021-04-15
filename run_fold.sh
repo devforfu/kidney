@@ -18,7 +18,7 @@
 # -----------------
 
 export PYTHONPATH=`pwd`
-export DATASET_ROOT=/mnt/fast/data/kidney
+export DATASET_ROOT=/mnt/fast/data/kidney/raw
 export EXPERIMENT=smp
 export VAL_NAME=simple_k_fold_4
 export RUN_FILE=
@@ -28,14 +28,29 @@ export RUN_FILE=
 # Parsing input arguments
 # -----------------------
 
-while [ "$#" -gt 0 ]; do
-  case $1 in
-    --experiment) EXPERIMENT="${2}"; shift ;;
-    --run-file) RUN_FILE="${2}"; shift ;;
-    --val-name) VAL_NAME="${2}"; shift ;;
-    *) echo "Unknown parameter: $1"; exit 1 ;;
+# https://stackoverflow.com/questions/192249/how-do-i-parse-command-line-arguments-in-bash
+
+while [[ "$#" -gt 0 ]]
+do
+  case "$1" in
+    -e|--experiment)
+    EXPERIMENT="${2}"
+    shift
+    ;;
+    -r|--run-file)
+    RUN_FILE="${2}"
+    shift
+    ;;
+    -v|--val-name)
+    VAL_NAME="${2}"
+    shift
+    ;;
+    *)
+    echo "Unknown parameter: $1"
+    exit 1
+    ;;
   esac
-  shift
+shift
 done
 
 if [ -z "${RUN_FILE}" ]
@@ -52,7 +67,7 @@ fi
 
 export VALIDATION_SCHEME="`pwd`/validation/${VAL_NAME}.txt"
 
-echo "Selected validation scheme: ${VALIDATION_SCHEME}"
+echo "Selected validation scheme: ${VAL_NAME}"
 
 # ----------------
 # Helper functions
