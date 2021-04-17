@@ -1,0 +1,36 @@
+# Development configuration for experiments debugging.
+#
+# Uses single-threaded data loaders and a small subset of data.
+#
+experiment:
+  name: "unet"
+  dataset: "/mnt/fast/data/kidney/alt_r4_s256_sat40_pix200_shift"
+  output_dir: "~/experiments"
+lightning:
+  max_epochs: 1
+  precision: 32
+  gpus: [1]
+training:
+  loss_name: "bce_jaccard"
+  batch_size: 16
+  num_workers: 1
+validation: {}
+optimizer:
+  name: "adam"
+  options: {lr: .005}
+scheduler:
+  name: "reduce_lr"
+  monitor: "avg_val_dice"
+  options:
+    mode: "max"
+    patience: 5
+    factor: 0.3333
+model: {encoder_name: "efficientnet-b4"}
+transformers: {image_size: 256}
+use_wandb_logging: false
+metrics:
+  - {name: "dice", sigmoid: True}
+  - {name: "recall"}
+  - {name: "precision"}
+  - {name: "balanced_accuracy"}
+  - {name: "f1_score"}
