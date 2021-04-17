@@ -44,6 +44,7 @@ class TrainingConfig(BaseModel):
     loss_name: str
     loss_config: Optional[Dict[str, Any]] = None
     seed: int = 1
+    logging_steps: int = 1
     max_epochs: int = 1
     batch_size: int = 64
     num_workers: int = 12
@@ -77,7 +78,6 @@ class EarlyStoppingConfig(BaseModel):
     monitor: str = "val_loss"
     mode: str = "min"
     patience: int = 1
-    min_improvement: float = 1e-5
     restore_best_weights: bool = False
     enabled: bool = True
 
@@ -202,7 +202,7 @@ def create_trainer(config: Config) -> pl.Trainer:
 
     callbacks = []
 
-    if config.early_stopping is not None:
+    if config.early_stopping is not None and config.early_stopping.enabled:
         from kidney.extensions.early_stopping import EarlyStopping
         callbacks.append(EarlyStopping(
             monitor=config.early_stopping.monitor,
@@ -211,7 +211,7 @@ def create_trainer(config: Config) -> pl.Trainer:
             restore_best_weights=config.early_stopping.restore_best_weights,
         ))
 
-    if config.checkpoint is not None:
+    if config.checkpoint is not None and config.checkpoint.enabled:
         filepath = config.checkpoint.filepath
         if filepath is None:
             filepath = "%s/%s/%s/%s/{epoch:d}_{%s:4f}" % (

@@ -51,7 +51,7 @@ class Prototype(pl.LightningModule):
 
     @property
     def current_learning_rates(self) -> List[float]:
-        return [group["lr"] for group in self.optimizers().parma_groups]
+        return [group["lr"] for group in self.optimizers().param_groups]
 
     def configure_optimizers(self) -> Dict:
         opt = create_optimizer(self.model_parameters(), self.config.optimizer)
@@ -118,11 +118,12 @@ class Prototype(pl.LightningModule):
     def _log_optimization_metrics(self):
         if self.logger is None:
             return
-        logging_steps = self.hparams.logging_steps
+        logging_steps = self.config.training.logging_steps
         if self.global_step % logging_steps == 0:
+            [lr] = self.current_learning_rates
             self.logger.experiment.log(
                 {
-                    "lr": self.current_learning_rate,
+                    "lr": lr,
                     "loss": (self.training_loss - self.logging_loss) / logging_steps,
                 }
             )
