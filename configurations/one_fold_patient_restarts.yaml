@@ -1,20 +1,17 @@
-# Development configuration for experiments debugging.
-#
-# Uses single-threaded data loaders and a small subset of data. Note that validation data
-# is provided via environment variables to simplify k-fold logging implementation.
-#
+# Single-fold training.
 experiment:
   name: "unet"
   dataset: "/mnt/fast/data/kidney/alt_r4_s256_sat40_pix200_shift"
   output_dir: "~/experiments"
 lightning:
-  max_epochs: 3
+  max_epochs: 1000
   precision: 32
   gpus: [1]
+  num_sanity_val_steps: 0
 training:
   loss_name: "bce_jaccard"
-  batch_size: 16
-  num_workers: 1
+  batch_size: 20
+  num_workers: 12
 validation: {}
 optimizer:
   name: "adam"
@@ -24,11 +21,19 @@ scheduler:
   monitor: "avg_val_dice"
   options:
     mode: "max"
-    patience: 5
-    factor: 0.3333
+    patience: 10
+    factor: 0.1
+early_stopping:
+  monitor: "avg_val_dice"
+  mode: "max"
+  patience: 20
+  restore_best_weights: true
+checkpoint:
+  monitor: "avg_val_dice"
+  mode: "max"
 model: {encoder_name: "efficientnet-b4"}
 transformers: {image_size: 256}
-use_wandb_logging: false
+use_wandb_logging: true
 metrics:
   - {name: "dice", sigmoid: True}
   - {name: "recall"}

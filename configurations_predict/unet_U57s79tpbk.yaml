@@ -1,0 +1,5 @@
+experiment_id: unet_U57s79tpbk
+factory_class: prototype.models.UppExperiment
+sliding_window: {}
+dataset: /mnt/fast/data/kidney/raw
+output_dir: /mnt/fast/data/kidney/outputs
