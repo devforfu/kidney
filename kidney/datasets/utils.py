@@ -69,12 +69,12 @@ def read_segmentation_info(folder: str, file_format: str = "bbox") -> List[Dict]
         identifier = name.replace("img.", "").replace("seg.", "")
         return identifier
 
-    unique_samples = {get_identifier(fn) for fn in os.listdir(folder)}
+    unique_samples = sorted({get_identifier(fn) for fn in os.listdir(folder)})
 
     discovered = []
 
-    for sample in unique_samples:
-        info = {}
+    for i, sample in enumerate(unique_samples):
+        info = {"index": i}
         if file_format == "bbox":
             key, *bbox = sample.split("_")
             bbox = [int(x) for x in bbox]
