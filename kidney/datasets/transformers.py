@@ -63,7 +63,7 @@ class SigmoidOutputAsMask(OutputPostprocessor):
                 threshold_values=True,
                 logit_thresh=logit_thresh
             ))
-        self.logits_to_predictions = A.Compose(transforms)
+        self.logits_to_predictions = Compose(transforms)
 
     def prepare(self, output: Dict) -> Dict:
         transformed = self.logits_to_predictions(output["outputs"])

@@ -54,7 +54,8 @@ class MajorityVotePrediction(CombinedPrediction):
         majority_threshold = int(self.majority * n_folds)
         mask_pred = np.zeros(self.mask_size, dtype=np.uint8)
         for fold_name, mask in rle_masks.items():
-            mask_pred += rle_decode(mask, self.mask_size)
+            if not pd.isna(mask):
+                mask_pred += rle_decode(mask, self.mask_size)
         if n_folds > 1:
             mask_pred = mask_pred >= majority_threshold
         return mask_pred.astype(np.uint8)

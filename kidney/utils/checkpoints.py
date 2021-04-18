@@ -112,7 +112,11 @@ class CheckpointsStorage:
 
         """
         latest_dir = find_latest_dir(self.folder, str(self.timestamp_format))
-        meta_file = join(latest_dir, self.meta_name)
+        return self.fetch_best_file_in_dir(latest_dir, metric, with_meta)
+
+    def fetch_best_file_in_dir(self, metric: str, with_meta: bool = True, dirname: Optional[str] = None) -> Checkpoint:
+        dirname = dirname or self.folder
+        meta_file = join(dirname, self.meta_name)
 
         meta = None
         if not exists(meta_file) and with_meta:
@@ -120,8 +124,9 @@ class CheckpointsStorage:
         elif exists(meta_file):
             meta = torch.load(meta_file)
 
-        best_file = find_best_file(latest_dir, metric=metric, extension=self.extension)
+        best_file = find_best_file(dirname, metric=metric, extension=self.extension)
         return Checkpoint(best_file, meta)
+
 
     def restore_experiment(
         self,
@@ -156,7 +161,10 @@ class CheckpointsStorage:
 
 
 def load_experiment(factory, checkpoint_file, meta_file, strict=False):
-    meta = torch.load(meta_file)
+    if isinstance(meta_file, str):
+        meta = torch.load(meta_file)
+    else:
+        meta = meta_file
     experiment = factory.load_from_checkpoint(
         checkpoint_file, params=meta["params"], strict=strict)
     experiment = experiment.eval()
