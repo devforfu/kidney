@@ -43,15 +43,21 @@ class Prototype(pl.LightningModule):
     def model_parameters(self) -> List:
         return self.model.parameters()
 
-    def model_state_dict(self) -> Dict:
+    def model_weights(self) -> Dict:
         return self.model.state_dict()
 
-    def load_model_state_dict(self, state_dict: Dict) -> None:
+    def load_weights(self, state_dict: Dict):
         self.model.load_state_dict(state_dict)
 
     @property
     def current_learning_rates(self) -> List[float]:
         return [group["lr"] for group in self.optimizers().param_groups]
+
+    @property
+    def num_bad_epochs(self) -> int:
+        [config] = self.trainer.lr_schedulers
+        scheduler = config["scheduler"]
+        return getattr(scheduler, "num_bad_epochs", -1)
 
     def configure_optimizers(self) -> Dict:
         opt = create_optimizer(self.model_parameters(), self.config.optimizer)
@@ -96,8 +102,8 @@ class Prototype(pl.LightningModule):
                 compute_average_metrics(outputs, suffix="avg_trn_")
             )
             self.logger.experiment.log({"current_epoch": self.current_epoch})
-            if self.num_bad_epochs() != -1:
-                self.logger.experiment.log({"num_bad_epochs": self.num_bad_epochs()})
+            if self.num_bad_epochs != -1:
+                self.logger.experiment.log({"num_bad_epochs": self.num_bad_epochs})
 
     def validation_epoch_end(self, outputs: List[Any]) -> None:
         avg_val_metrics = compute_average_metrics(outputs, suffix="avg_")

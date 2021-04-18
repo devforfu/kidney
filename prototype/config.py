@@ -14,18 +14,19 @@ from pytorch_lightning.utilities import AttributeDict
 from zeus.utils import TimestampFormat
 
 from kidney.cli.lightning import get_trainer_specific_args
+from kidney.datasets.kaggle import SampleType
 from kidney.parameters import PROJECT_NAME
 
 
-class ExperimentConfig(BaseModel):
+class ExperimentConfig(BaseSettings):
     name: str
     output_dir: str
     dataset: str
-    run_identifier: str = ""
     file_format: str = "enum"
-    timestamp: str = TimestampFormat.VerboseShortSeconds.now()
+    run_identifier: str = Field(default="", env="RUN_ID")
     tags: List[str] = Field(default_factory=list)
     project_name: str = PROJECT_NAME
+    timestamp: str = TimestampFormat.VerboseShortSeconds.now()
 
     @validator("run_identifier", pre=True, always=True)
     def use_default_run_identifier(cls, value, *, values):
@@ -37,7 +38,10 @@ class ExperimentConfig(BaseModel):
 
     @property
     def root_dir(self) -> str:
-        return os.path.join(self.output_dir, self.name)
+        root_dir = os.path.join(self.output_dir, self.name)
+        if self.run_identifier:
+            root_dir = f"{root_dir}_{self.run_identifier}"
+        return root_dir
 
 
 class TrainingConfig(BaseModel):
@@ -164,6 +168,39 @@ class Config(BaseModel):
     lightning: Optional[Dict[str, Any]] = None
 
 
+class SlidingWindowConfig(BaseModel):
+    window_size: int = 1024
+    overlap: int = 32
+    max_batch_size: int = 32
+    check_for_outliers: bool = True
+    outliers_threshold: int = 1000
+    transform_input: Optional[Callable] = None
+    transform_output: Optional[Callable] = None
+
+
+class PredictConfig(BaseSettings):
+    experiment_id: str
+    factory_class: str
+    dataset: str
+    output_dir: str
+    sliding_window: SlidingWindowConfig
+    run_id: str = Field(env="RUN_ID")
+    checkpoints_root: str = os.path.expanduser("~/experiments")
+    sample_type: SampleType = SampleType.All
+    device: str = "cuda:0"
+    performance_metric: str = "avg_val_dice"
+    encode_masks: bool = True
+    debug: bool = False
+
+    @property
+    def storage_dir(self) -> str:
+        return os.path.join(self.checkpoints_root, self.experiment_id, "checkpoints", self.run_id)
+
+    @property
+    def predictions_file(self) -> str:
+        return os.path.join(self.output_dir, self.experiment_id, f"fold_{self.run_id}.csv")
+
+
 MainFunction = Callable[[Config], None]
 
 
@@ -174,6 +211,7 @@ def configure(func: MainFunction) -> MainFunction:
     assert "config" in signature.parameters, "The argument should be called 'config'"
 
     filename = os.environ.get("CONFIG_FILE", "configuration.yaml")
+    filename = os.path.expanduser(filename)
     assert os.path.exists(filename), "Configuration file is not found!"
 
     def wrapper() -> None:
@@ -214,9 +252,8 @@ def create_trainer(config: Config) -> pl.Trainer:
     if config.checkpoint is not None and config.checkpoint.enabled:
         filepath = config.checkpoint.filepath
         if filepath is None:
-            filepath = "%s/%s/%s/%s/{epoch:d}_{%s:4f}" % (
-                config.experiment.output_dir,
-                config.experiment.name,
+            filepath = "%s/%s/%s/{epoch:d}_{%s:4f}" % (
+                config.experiment.root_dir,
                 config.checkpoint.folder,
                 config.experiment.timestamp,
                 config.checkpoint.monitor,

@@ -1,17 +1,15 @@
-from abc import ABC
 from collections import OrderedDict
 from typing import List, Dict
 
-import segmentation_models_pytorch as smp
-from torch import nn
 from torch.utils.data.dataloader import DataLoader
 from zeus.core.random import super_seed
 
 from kidney.datasets.offline import OfflineCroppedDatasetV2
 from kidney.datasets.transformers import Transformers
 from kidney.datasets.utils import read_segmentation_info
-from prototype.base import Prototype
+from kidney.experiments import save_experiment_info
 from prototype.config import Config, configure, create_trainer
+from prototype.models import UppExperiment
 from prototype.transformers import create_transformers
 
 
@@ -34,6 +32,8 @@ def main(config: Config):
     )
 
     trainer = create_trainer(config)
+
+    save_experiment_info(trainer, {"params": config, "transformers": transformers})
 
     trainer.fit(
         model=UppExperiment(config),
@@ -69,25 +69,6 @@ def create_data_loaders(
         )
     return loaders
 
-
-class SegmentationExperiment(Prototype, ABC):
-
-    def forward(self, batch: Dict) -> Dict:
-        predicted_mask = self.model(batch["img"])
-        if "seg" in batch:
-            loss = self.loss_fn(predicted_mask, batch["seg"])
-            if isinstance(loss, Dict):
-                loss["outputs"] = predicted_mask
-                return loss
-            else:
-                return {"loss": loss, "outputs": predicted_mask}
-        return {"outputs": predicted_mask}
-
-
-class UppExperiment(SegmentationExperiment):
-
-    def create_model(self) -> nn.Module:
-        return smp.UnetPlusPlus(**self.config.model)
 
 
 if __name__ == "__main__":

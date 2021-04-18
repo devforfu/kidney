@@ -60,7 +60,7 @@ function generate_timestamp {
 }
 
 function execute_script_with_fold {
-  VAL_FOLD=${1} python prototype/main.py
+  VAL_FOLD=${1} RUN_ID=${2} python prototype/main.py
   return_status=$?
   if [[ $return_status -ne 0 ]]
   then
@@ -89,6 +89,6 @@ echo "***"
 for ((i=0;i<n_folds;i++))
 do
   echo "Training with fold $((i+1)) of ${n_folds}"
-   execute_script_with_fold "${i}"
+   execute_script_with_fold "${i}" "${unique_id}"
    sleep 1
 done
