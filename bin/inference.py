@@ -89,7 +89,7 @@ def inference_picker(
         device=device,
         debug=debug,
         config=SlidingWindowConfig(
-            window_size=int(prompt("window size: ", default=str(512))),
+            window_size=int(prompt("window size: ", default=str(1024))),
             overlap=int(prompt("overlap: ", default=str(32))),
             max_batch_size=int(prompt("max batch size: ", default=str(64))),
             check_for_outliers=prompt("check for outliers: ", default="yes") == "yes",
