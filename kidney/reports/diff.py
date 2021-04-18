@@ -15,31 +15,6 @@ from kidney.utils.image import overlay_masks
 session_state = session.get(password=False)
 
 
-def get_root():
-    return os.environ.get("DATASET_ROOT", os.path.expanduser("~"))
-
-
-def select_predictions(root: str):
-    choices = []
-    for fn in os.listdir(root):
-        for fn2 in os.listdir(join(root, fn)):
-            choices.append(join(root, fn, fn2))
-    filename = st.selectbox("Select predictions", choices)
-    return filename, os.path.isdir(filename)
-
-
-@st.cache
-def read_predictions(dirname: str):
-    from kidney.inference.prediction import read_predictions
-    return read_predictions(dirname).to_dict("index")
-
-
-@st.cache
-def read_single_prediction(filename: str):
-    from kidney.inference.prediction import read_single_prediction
-    return read_single_prediction(filename).to_dict("index")
-
-
 @with_password(session_state)
 def main():
     set_wide_screen()
@@ -94,6 +69,32 @@ def main():
         image = overlay_masks(image.copy(), masks, convert_to_uint=False)
 
     st.image(image, caption="Image with mask(s)")
+
+
+
+def get_root():
+    return os.environ.get("DATASET_ROOT", os.path.expanduser("~"))
+
+
+def select_predictions(root: str):
+    choices = []
+    for fn in os.listdir(root):
+        for fn2 in os.listdir(join(root, fn)):
+            choices.append(join(root, fn, fn2))
+    filename = st.selectbox("Select predictions", choices)
+    return filename, os.path.isdir(filename)
+
+
+@st.cache
+def read_predictions(dirname: str):
+    from kidney.inference.prediction import read_predictions
+    return read_predictions(dirname).to_dict("index")
+
+
+@st.cache
+def read_single_prediction(filename: str):
+    from kidney.inference.prediction import read_single_prediction
+    return read_single_prediction(filename).to_dict("index")
 
 
 
