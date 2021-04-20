@@ -2,6 +2,7 @@ from typing import Dict
 
 import cv2 as cv
 import streamlit as st
+import tifffile
 
 from kidney.datasets.kaggle import DatasetReader, SampleType
 from kidney.utils.image import overlay
@@ -24,7 +25,9 @@ def sidebar(reader: DatasetReader):
 
 @st.cache
 def read_image(meta: Dict, size: int, overlay_mask: bool = True):
-    tiff = read_tiff(meta["tiff"])
+    tiff = tifffile.imread(meta["tiff"])
+    if tiff.shape[0] == 3:
+        tiff = tiff.transpose((1, 2, 0))
     shape = tiff.shape[:2]
     has_mask = meta.get("mask") is not None
     mask = rle_decode(meta["mask"], shape) if has_mask else None
