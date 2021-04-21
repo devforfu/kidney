@@ -213,7 +213,7 @@ Scheduler = Union[
 
 def create_scheduler(optimizer: Optimizer, experiment: Prototype) -> Scheduler:
     scheduler_config = experiment.config.scheduler
-    training_config = experiment.config.training
+    lightning_config = experiment.config.lightning
 
     name = scheduler_config.name.lower()
     options = scheduler_config.options or {}
@@ -223,17 +223,17 @@ def create_scheduler(optimizer: Optimizer, experiment: Prototype) -> Scheduler:
 
     elif name == "cosine":
         if scheduler_config.interval == "epoch":
-            t_max = training_config.max_epochs
+            t_max = lightning_config["max_epochs"]
         elif scheduler_config.interval == "step":
             dl = experiment.train_dataloader()
-            t_max = len(dl) * training_config.max_epochs
+            t_max = len(dl) * lightning_config["max_epochs"]
         else:
             raise ValueError(f"unknown scheduler interval: {scheduler_config.interval}")
         scheduler = CosineAnnealingLR(optimizer=optimizer, T_max=t_max, **options)
 
     elif name == "one_cycle":
         dl = experiment.train_dataloader()
-        total_steps = len(dl) * training_config.max_epochs
+        total_steps = len(dl) * lightning_config["max_epochs"]
         scheduler = OneCycleLR(optimizer=optimizer, total_steps=total_steps, **options)
 
     elif name == "reduce_lr":
