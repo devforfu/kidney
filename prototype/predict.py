@@ -5,10 +5,11 @@ import PIL.Image
 import pandas as pd
 
 from kidney.datasets.kaggle import KaggleKidneyDatasetReader
-from kidney.inference.inference import SlidingWindow
+from kidney.datasets.transformers import SigmoidOutputAsMask
 from kidney.utils.checkpoints import CheckpointsStorage, load_experiment, get_factory
 from kidney.utils.mask import rle_numba_encode
 from prototype.config import configure, PredictConfig
+from prototype.inference import InMemorySlidingWindow
 
 
 @configure
@@ -19,7 +20,7 @@ def main(config: PredictConfig) -> None:
     experiment, meta = load_experiment(factory, checkpoint.path, checkpoint.meta)
     config.sliding_window.transform_input = meta["transformers"].test_preprocessing
     config.sliding_window.transform_output = meta["transformers"].test_postprocessing
-    inference = SlidingWindow(
+    inference = InMemorySlidingWindow(
         model=experiment,
         device=config.device,
         debug=config.debug,
