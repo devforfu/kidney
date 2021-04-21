@@ -131,16 +131,20 @@ def read_model(discovered_models: Dict[str, Any], identifier: str):
         folds = []
         for fn in path:
             name = Path(fn).stem
-            order = int(name.split("_")[-1])
-            folds.append((order, fn))
-        acc, *rest = [
+            key = name.replace("fold_", "")
+            folds.append((key, fn))
+        dfs = [
             pd.read_csv(fn).set_index("id")
-            for _, fn in sorted(path)
+            for _, fn in sorted(folds)
         ]
-        for df in rest:
-            acc = pd.merge(acc, df, left_index=True, right_index=True)
-        acc.columns = range(len(folds))
-        df = acc
+        if len(dfs) == 1:
+            [df] = dfs
+        else:
+            acc, *rest = dfs
+            for df in rest:
+                acc = pd.merge(acc, df, left_index=True, right_index=True)
+            acc.columns = range(len(folds))
+            df = acc
     return df.to_dict("index")
 
 
