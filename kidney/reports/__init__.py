@@ -25,7 +25,7 @@ def sidebar(reader: DatasetReader):
 
 @st.cache
 def read_image(meta: Dict, size: int, overlay_mask: bool = True):
-    tiff = tifffile.imread(meta["tiff"])
+    tiff = tifffile.imread(meta["tiff"]).squeeze()
     if tiff.shape[0] == 3:
         tiff = tiff.transpose((1, 2, 0))
     shape = tiff.shape[:2]
