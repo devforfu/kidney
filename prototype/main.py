@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 from torch.utils.data.dataloader import DataLoader
 from zeus.core.random import super_seed
@@ -8,7 +8,7 @@ from kidney.datasets.offline import OfflineCroppedDatasetV2
 from kidney.datasets.transformers import Transformers
 from kidney.datasets.utils import read_segmentation_info
 from kidney.experiments import save_experiment_info
-from prototype.config import Config, configure, create_trainer
+from prototype.config import Config, configure, create_trainer, ValidationConfig
 from prototype.models import UppExperiment
 from prototype.transformers import create_transformers
 
@@ -21,10 +21,12 @@ def main(config: Config):
 
     transformers = create_transformers(config.transformers)
 
+    train, valid = config.validation.get_selected_fold()
+
     loaders = create_data_loaders(
         samples=samples,
-        train=config.validation.folds.train,
-        valid=config.validation.folds.valid,
+        train=train,
+        valid=valid,
         batch_size=config.training.batch_size,
         num_workers=config.training.num_workers,
         transformers=transformers,
