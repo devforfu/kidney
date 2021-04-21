@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 
 import yaml
 from pydantic import BaseModel, Field, validator, BaseSettings
-from typing import Dict, Any, Optional, Callable, List, Tuple
+from typing import Dict, Any, Optional, Callable, List, Tuple, Union
 
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
@@ -49,7 +49,6 @@ class TrainingConfig(BaseModel):
     loss_config: Optional[Dict[str, Any]] = None
     seed: int = 1
     logging_steps: int = 1
-    max_epochs: int = 1
     batch_size: int = 64
     num_workers: int = 12
     multiprocessing_context: str = "fork"
@@ -57,14 +56,24 @@ class TrainingConfig(BaseModel):
 
 class ValidationFolds(BaseModel):
     n_folds: int
-    train: List[int]
-    valid: List[int]
+    train: Union[List[int], List[List[int]]]
+    valid: Union[List[int], List[List[int]]]
 
 
 class ValidationConfig(BaseSettings):
     filepath: str = Field(env="VAL_FILE")
     fold_no: int = Field(default=0, env="VAL_FOLD")
     folds: ValidationFolds = None
+
+    def get_selected_fold(self) -> Tuple[List[int], List[int]]:
+        return (
+            (self.folds.train, self.folds.valid)
+            if self.folds.n_folds == 1
+            else (
+                self.folds.train[self.fold_no],
+                self.folds.valid[self.fold_no],
+            )
+        )
 
     @validator("filepath", pre=True, always=True)
     def filepath_exists(cls, value):
@@ -187,7 +196,7 @@ class PredictConfig(BaseSettings):
     run_id: str = Field(env="RUN_ID")
     checkpoints_root: str = os.path.expanduser("~/experiments")
     sample_type: SampleType = SampleType.All
-    device: str = "cuda:0"
+    device: str = Field(default="cuda:0", env="DEVICE")
     performance_metric: str = "avg_val_dice"
     encode_masks: bool = True
     debug: bool = False
