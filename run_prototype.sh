@@ -89,6 +89,6 @@ echo "***"
 for ((i=0;i<n_folds;i++))
 do
   echo "Training with fold $((i+1)) of ${n_folds}"
-   execute_script_with_fold "${i}" "${unique_id}"
-   sleep 1
+  execute_script_with_fold "${i}" "${unique_id}"
+  sleep 1
 done
