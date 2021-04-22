@@ -1,8 +1,7 @@
-experiment_id: unet_U57s79tpbk
+experiment_id: unet_gUPUIzHzdW
 factory_class: prototype.models.UppExperiment
 sliding_window:
   max_batch_size: 64
-  outliers_threshold: 20000
   check_for_outliers: false
 dataset: /mnt/fast/data/kidney/raw
 output_dir: /mnt/fast/data/kidney/outputs

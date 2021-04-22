@@ -48,7 +48,8 @@ class InferenceAlgorithm:
 
         """
         predictions = []
-        keys = reader.get_keys(sample_type)
+        # keys = reader.get_keys(sample_type)
+        keys = ["aaa6a05cc"]
         for i, key in enumerate(keys):
             print(f"processing key: {key} [{i + 1}/{len(keys)}]")
             meta = reader.fetch_meta(key)
