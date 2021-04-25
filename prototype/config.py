@@ -154,6 +154,8 @@ class Elastic(AugmentationConfig):
 
 class TransformersConfig(BaseModel):
     image_size: int
+    resize: bool = True
+    normalize_only: bool = False
     bcg: Optional[BCG] = BCG()
     blur: Optional[Blur] = Blur()
     noise: Optional[Noise] = Noise()
