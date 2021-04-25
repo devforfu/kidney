@@ -81,7 +81,7 @@ class OfflineCroppedDatasetV2(Dataset):
     def __getitem__(self, item: int) -> Dict:
         image, mask = self.read_sample(item)
         if self.transform is None:
-            return {"img": _float32(image), "seg": _float32(mask)}
+            return {"img": float32(image), "seg": float32(mask)}
         else:
             transformed = self.transform(image=image, mask=mask)
             transformed = {self.keys_mapping.get(k, k): v for k, v in transformed.items()}
@@ -89,7 +89,7 @@ class OfflineCroppedDatasetV2(Dataset):
             if torch.is_tensor(image):
                 image, mask = image.float(), mask.float()
             else:
-                image, mask = _float32(image), _float32(mask)
+                image, mask = float32(image), float32(mask)
             return {"img": image, "seg": mask}
 
     def read_sample(self, item: int) -> Tuple[np.ndarray, np.ndarray]:
@@ -116,7 +116,7 @@ def _ensure_binary_mask(mask: np.ndarray) -> np.ndarray:
     return np.where(mask > 0, 1, 0)
 
 
-def _float32(arr: np.ndarray) -> np.ndarray:
+def float32(arr: np.ndarray) -> np.ndarray:
     return arr.astype(np.float32)
 
 
