@@ -83,6 +83,7 @@ class IntensityNormalization(AutoName):
     NoOp = auto()
     ZeroOne = auto()
     TorchvisionSegmentation = auto()
+    DatasetScale2 = auto()
 
     @classmethod
     def parse(cls, value: str):
@@ -91,6 +92,8 @@ class IntensityNormalization(AutoName):
     def get_stats(self):
         if self == IntensityNormalization.TorchvisionSegmentation:
             return (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
+        elif self == IntensityNormalization.DatasetScale2:
+            return (0.624, 0.525, 0.653), (0.277, 0.303, 0.271)
         return None, None
 
 
