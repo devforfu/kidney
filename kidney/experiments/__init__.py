@@ -278,7 +278,7 @@ class DictMetric:
     def __name__(self) -> str:
         return self.name
 
-    def __call__(self, outputs: Dict, batch: Dict) -> torch.Tensor:
+    def __call__(self, outputs: Dict, batch: Dict) -> Optional[torch.Tensor]:
         pred = outputs[self.pred_key]
         true = batch[self.true_key]
         metric = self.metric(pred, true)
@@ -325,6 +325,23 @@ class DiceCOESigmoid:
         dice = (2. * intersect + self.smooth)/(a + b + self.smooth)
         dice_avg = torch.mean(dice)
         return dice_avg
+
+
+@dataclass
+class DiceNonThreshold:
+    sigmoid: bool = True
+
+    @property
+    def __name__(self) -> str:
+        return "dice_non_threshold"
+
+    def __call__(self, pred: torch.Tensor, gt: torch.Tensor) -> Optional[torch.Tensor]:
+        if self.sigmoid:
+            pred, gt = [torch.sigmoid(t) for t in (pred, gt)]
+        pred, gt = [torch.flatten(t) for t in (pred, gt)]
+        intersection = (pred*gt).float().sum()
+        union = (pred + gt).float().sum()
+        return 2.*intersection/union if union > 0 else None
 
 
 @dataclass
@@ -386,7 +403,8 @@ def compute_average_metrics(outputs: List[Any], suffix: Optional[str] = None) ->
     acc = defaultdict(list)
     for record in outputs:
         for k, v in record.items():
-            acc[k].append(v.item())
+            if v is not None:
+                acc[k].append(v.item())
     return {
         k if suffix is None else f"{suffix}{k}": np.mean(collected)
         for k, collected in acc.items()
