@@ -2,9 +2,11 @@ from typing import Dict, Any, Optional, Callable, List, Union
 
 import pytorch_lightning as pl
 import torch
+from madgrad import MADGRAD
 from monai.losses import DiceLoss
 from monai.metrics import DiceMetric
 from segmentation_models_pytorch.losses.jaccard import JaccardLoss
+from segmentation_models_pytorch.utils.metrics import IoU
 from torch import nn
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import (
@@ -20,7 +22,7 @@ from kidney.experiments import (
     DiceCOESigmoid,
     ConfusionMatrixMetric,
     CombinedDiceBCELoss,
-    compute_average_metrics,
+    compute_average_metrics, DiceNonThreshold,
 )
 from prototype.config import (
     Config,
@@ -189,6 +191,11 @@ def create_metric(params: Dict[str, Any]):
         return DictMetric(ConfusionMatrixMetric("accuracy"))
     elif name == "balanced_accuracy":
         return DictMetric(ConfusionMatrixMetric("balanced accuracy"))
+    elif name == "iou":
+        t = params.get("t", 0.5)
+        return DictMetric(IoU(threshold=t), name=f"iou_{t:2.2%}")
+    elif name == "dice_non_threshold":
+        return DictMetric(DiceNonThreshold(**params))
     raise ValueError(f"unknown metric name was requested: {name}")
 
 
@@ -201,6 +208,8 @@ def create_optimizer(optimizer_params: List, config: OptimizerConfig) -> Optimiz
         opt = torch.optim.Adam(params=optimizer_params, **options)
     elif name == "sgd":
         opt = torch.optim.SGD(params=optimizer_params, **options)
+    elif name == "madgrad":
+        opt = MADGRAD(params=optimizer_params, **options)
     else:
         raise ValueError(f"unknown optimizer: {name}")
     return opt
