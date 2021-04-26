@@ -5,8 +5,11 @@ from pathlib import Path
 from typing import Dict, Any
 
 import cv2 as cv
+import numpy as np
 import pandas as pd
 import streamlit as st
+import torch
+from monai.metrics import DiceMetric
 
 from kidney.datasets.kaggle import KaggleKidneyDatasetReader
 from kidney.inference.prediction import MajorityVotePrediction
@@ -15,6 +18,7 @@ from kidney.reports.auth import with_password
 from kidney.reports.colors import hex_to_color
 from kidney.reports.style import set_wide_screen
 from kidney.utils.image import overlay_masks
+from kidney.utils.mask import rle_decode
 
 session_state = session.get(password=False)
 
@@ -43,6 +47,8 @@ def main():
     )
 
     mask_pred = predictor(sample_key)
+
+    st.text(f"Dice metric: {dice_metric(mask_pred, meta['mask']):2.4f}")
 
     masks = []
 
@@ -146,6 +152,17 @@ def read_model(discovered_models: Dict[str, Any], identifier: str):
             acc.columns = range(len(folds))
             df = acc
     return df.to_dict("index")
+
+
+@st.cache
+def dice_metric(mask_pred: np.ndarray, mask_encoded: str) -> float:
+    dice = DiceMetric()
+    mask_true = rle_decode(mask_encoded, mask_pred.shape)
+    dice_value = dice(
+        y_pred=torch.tensor(mask_pred).unsqueeze(0),
+        y=torch.tensor(mask_true).unsqueeze(0)
+    )
+    return dice_value.item()
 
 
 if __name__ == '__main__':
