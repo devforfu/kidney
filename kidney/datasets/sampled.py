@@ -1,42 +1,53 @@
 from abc import ABC
 from os.path import join
-from typing import Optional, Callable, Tuple
+from typing import Optional, Callable, Tuple, List, Dict
 
 import cv2 as cv
 import numpy as np
+import torch
 import zarr
 from pydantic import BaseModel
 from scipy.interpolate import Rbf
 from torch.utils.data.dataset import Dataset
+from zeus.plotting.utils import axes
 
 from deepflash import transforms
+from kidney.datasets.offline import float32
 from kidney.log import get_logger
 
 logger = get_logger(__name__)
 
 
 class ZarrDataset(Dataset, ABC):
+    _default_keys_mapping = {"image": "img", "mask": "seg"}
+
     def __init__(
         self,
-        dataset: str,
+        path: str,
+        keys: Optional[List[str]] = None,
         tile_shape: Tuple[int, int] = (512, 512),
         padding: Tuple[int, int] = (0, 0),
         scale: int = 1,
+        keys_mapping: Optional[Dict] = None,
     ):
-        samples = zarr.open(join(dataset, "samples"))
-        labels = zarr.open(join(dataset, "masks", "labels"))
-        pdfs = zarr.open(join(dataset, "masks", "pdfs"))
+        samples = zarr.open(join(path, "samples"))
+        labels = zarr.open(join(path, "masks", "labels"))
+        pdfs = zarr.open(join(path, "masks", "pdfs"))
+        keys = keys or list(samples)
 
         assert list(samples) == list(labels) == list(pdfs)
+        assert len(keys) == len(set(keys))
+        assert set(keys).issubset(samples)
 
         super().__init__()
         self.samples = samples
         self.labels = labels
         self.pdfs = pdfs
-        self.keys = list(samples)
+        self.keys = keys
         self.tile_shape = tile_shape
         self.padding = padding
         self.scale = scale
+        self.keys_mapping = keys_mapping or self._default_keys_mapping
 
     def get_key(self, index: int) -> str:
         return self.keys[index]
@@ -83,7 +94,8 @@ class DeformationField:
             tile = np.empty((*out_shape, data.shape[-1]))
             for c in range(data.shape[-1]):
                 tile[..., c] = cv.remap(
-                    data[slices[0], slices[1], c],  # todo: normalize to 0-1 here or after augmentation pipeline?
+                    # todo: normalize to 0-1 here or after augmentation pipeline?
+                    data[slices[0], slices[1], c],
                     coords[1],
                     coords[0],
                     interpolation=interpolation,
@@ -147,8 +159,9 @@ class DeformationConfig(BaseModel):
 class RandomTilesDataset(ZarrDataset):
     def __init__(
         self,
-        deformation_config: DeformationConfig = DeformationConfig(),
         samples_per_item: Optional[int] = None,
+        transform: Optional[Callable] = None,
+        deformation_config: DeformationConfig = DeformationConfig(),
         **base_params
     ):
         super().__init__(**base_params)
@@ -160,31 +173,48 @@ class RandomTilesDataset(ZarrDataset):
 
         self.samples_per_item = samples_per_item
         self.deformation_config = deformation_config
+        self.transform = transform
         self.deformation: DeformationField = None
         self.gamma: Callable = None
         self.update_deformation()
 
-    def __len__(self):
-        return len(self.samples) * self.samples_per_item
+    def __len__(self) -> int:
+        return len(self.keys) * self.samples_per_item
 
-    def __getitem__(self, item: int):
-        key = self.get_key(item % len(self.samples))
+    def __getitem__(self, item: int) -> Dict:
+        key = self.get_key(item % len(self.keys))
 
         image = self.samples[key]
         mask = self.labels[key]
         pdf = self.pdfs[key]
 
         center = transforms.random_center(pdf[:], mask.shape)
+        x = self.deformation(image, center, self.padding)
+        y = self.deformation(mask, center, self.padding, interpolation=cv.INTER_NEAREST)
 
-        x = self.deformation(image, offset=center, pad=self.padding).astype(np.uint8)
+        if self.transform is None:
+            x, y = float32(x), float32(y)
+        else:
+            transformed = self.transform(image=x.astype(np.uint8), mask=y)
+            transformed = {self.keys_mapping.get(k, k): v for k, v in transformed.items()}
+            x, y = transformed["img"], transformed["seg"]
+            if torch.is_tensor(x):
+                x, y = x.float(), y.float()
+            else:
+                x, y = float32(x), float32(y)
+
+        return {"img": x, "seg": y}
+
+        # if self.transform is None:
+        #     return {"img": float32(image), "seg": float32(mask)}
+        # else:
+        #     x = self.deformation(image, offset=center, pad=self.padding).astype(np.uint8)
+        #     y = self.deformation(mask, offset=center, pad=self.padding, interpolation=cv.INTER_NEAREST)
+        #     return x, y
 
         # x = x.flatten().reshape((*self.tile_shape, n_channels))
         # x = self.gamma(x)
         # x = x.transpose(2, 0, 1).astype(np.float32)
-
-        y = self.deformation(mask, offset=center, pad=self.padding, interpolation=cv.INTER_NEAREST)
-
-        return x, y
 
     def update_deformation(self):
         scale = (
@@ -218,22 +248,130 @@ class RandomTilesDataset(ZarrDataset):
         a, b = self.deformation_config.value_slope_range
         inter_value = a + (b - a)*np.random.random()
 
-        # self.gamma = interp1d([0, 0.5, 1.0], [min_value, inter_value, max_value], kind="quadratic")
+        # xs = [0, 0.5, 1.0]
+        # ys = [min_value, inter_value, max_value]
+        # self.gamma = interp1d(xs, ys, kind="quadratic")
+
         self.deformation = field
 
 
-def main():
-    # root = "/mnt/fast/data/kidney/"
-    # filenames = read_zarr_files(f"{root}/zarr_train_2")
-    # labels_dir, pdfs_dir = create_zarr_files(filenames, output_dir=root, n_jobs=1)
-    # dataset = RandomTilesDataset(zarr_files=filenames, labels_dir=labels_dir, pdfs_dir=pdfs_dir)
-    # x, y = dataset[0]
-    # print(x, y)
+class TileDataset(ZarrDataset):
 
-    path = "/mnt/fast/data/kidney/zarr/scale_2"
-    dataset = RandomTilesDataset(dataset=path)
-    print(dataset[0])
+    def __init__(self, transform: Optional[Callable] = None, **base_params):
+        super().__init__(**base_params)
+        self.transform = transform
+        self.deformation = DeformationField(self.tile_shape, self.scale)
+        self._create_tiles()
+
+    def _create_tiles(self):
+        output_shape = tuple(int(t - p) for t, p in zip(self.tile_shape, self.padding))
+        centers, indices, shapes, out_slices, in_slices = [], [], [], [], []
+        total = 0
+
+        for i, key in enumerate(self.keys):
+            image = self.samples[key]
+            shape = tuple(int(x//self.scale) for x in image.shape[:-1])
+
+            y_steps = int(max(1, np.ceil(shape[0]/output_shape[0])))
+            x_steps = int(max(1, np.ceil(shape[1]/output_shape[1])))
+
+            for y in range(y_steps):
+                for x in range(x_steps):
+                    cy = int((y + .5)*output_shape[0]*self.scale)
+                    cx = int((x + .5)*output_shape[1]*self.scale)
+
+                    centers.append((cy, cx))
+                    indices.append(i)
+                    shapes.append(shape)
+
+                    slices = [
+                        slice(
+                            int(pos*out_val),
+                            int(min((pos + 1)*out_val, in_val))
+                        )
+                        for pos, out_val, in_val in zip((y, x), output_shape, shape)
+                    ]
+                    out_slices.append(slices)
+
+                    slices = [
+                        slice(
+                            0,
+                            int(min((pos + 1)*out_val, in_val) - pos*out_val)
+                        )
+                        for pos, out_val, in_val in zip((y, x), output_shape, shape)
+                    ]
+                    in_slices.append(slices)
+
+                    total += 1
+
+        self.centers = centers
+        self.indices = indices
+        self.shapes = shapes
+        self.out_slices = out_slices
+        self.in_slices = in_slices
+        self.total = total
+
+    def __len__(self):
+        return self.total
+
+    def __getitem__(self, item: int):
+        idx = self.indices[item]
+
+        image = self.samples[self.keys[idx]]
+        mask = self.labels[self.keys[idx]]
+        center = self.centers[item]
+
+        x = self.deformation(image, center)
+        y = self.deformation(mask, center)
+
+        if self.transform is None:
+            return {"img": float32(x), "seg": float32(y)}
+        else:
+            transformed = self.transform(image=x.astype(np.uint8), mask=y)
+            transformed = {self.keys_mapping.get(k, k): v for k, v in transformed.items()}
+            image, mask = transformed["img"], transformed["seg"]
+            if torch.is_tensor(image):
+                image, mask = image.float(), mask.float()
+            else:
+                image, mask = float32(image), float32(mask)
+            return {"img": image, "seg": mask}
 
 
-if __name__ == "__main__":
-    main()
+def show(
+    ds: Dataset,
+    n: int,
+    m: int,
+    size: int = 2,
+    random: bool = True,
+    indices: List[int] = None
+):
+    canvas = axes(subplots=(n, m), figsize=(m * size, n * size))
+
+    if random:
+        indices = np.random.choice(np.arange(len(ds)), size=m)
+
+        for i in range(n):
+
+            for j, index in enumerate(indices):
+                ax = canvas[i][j]
+                sample = ds[index]
+                x, y = sample["img"], sample["seg"]
+                ax.imshow(x.astype(np.uint8))
+                ax.imshow(y, alpha=0.3)
+                ax.set_axis_off()
+                ax.set_title(f"{j} ({x.mean().round(1):.1f})")
+
+            if hasattr(ds, "update_deformation"):
+                ds.update_deformation()
+
+    else:
+        assert indices is not None
+
+        for i in range(n * m):
+            ax = canvas.flat[i]
+            sample = ds[i]
+            x, y = sample["img"], sample["seg"]
+            ax.imshow(x.astype(np.uint8))
+            ax.imshow(y, alpha=0.3)
+            ax.set_axis_off()
+            ax.set_title(i)
