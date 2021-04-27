@@ -1,0 +1,10 @@
+experiment_id: unet_P8IDI0pLLL
+factory_class: prototype.models.UppExperiment
+sliding_window:
+  window_size: 512
+  max_batch_size: 24
+  check_for_outliers: false
+dataset: /mnt/fast/data/kidney/raw
+output_dir: /mnt/fast/data/kidney/outputs
+performance_metric: avg_val_loss
+keys_include: ["b9a3865fc"]

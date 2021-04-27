@@ -1,0 +1,44 @@
+# Random tiles dataset
+experiment:
+  name: "unet"
+  dataset: "/mnt/fast/data/kidney/zarr/scale_2"
+  output_dir: "~/experiments"
+  file_format: "sampling"
+lightning:
+  max_epochs: 12
+  precision: 16
+  gpus: [1]
+  num_sanity_val_steps: 0
+dataset:
+  train:
+    samples_per_item: 10
+training:
+  loss_name: "bce_logits"
+  batch_size: 10
+  num_workers: 12
+validation: {}
+optimizer:
+  name: "adam"
+scheduler:
+  name: "one_cycle"
+  interval: "step"
+  options:
+    max_lr: 0.001
+early_stopping:
+  enabled: false
+checkpoint:
+  monitor: "avg_val_loss"
+  mode: "min"
+  top_k: -1
+model: {encoder_name: "efficientnet-b4", encoder_weights: "imagenet"}
+transformers:
+  image_size: 512
+  resize: false
+  normalize_only: true
+use_wandb_logging: true
+metrics:
+  - {name: "sorensen_dice"}
+  - {name: "recall"}
+  - {name: "precision"}
+  - {name: "balanced_accuracy"}
+  - {name: "f1_score"}
