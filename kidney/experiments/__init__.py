@@ -328,20 +328,31 @@ class DiceCOESigmoid:
 
 
 @dataclass
-class DiceNonThreshold:
-    sigmoid: bool = True
+class SorensenDice:
+    threshold: float = 0.5
+    binary: bool = True
 
     @property
     def __name__(self) -> str:
-        return "dice_non_threshold"
+        return "sorensen_dice"
 
     def __call__(self, pred: torch.Tensor, gt: torch.Tensor) -> Optional[torch.Tensor]:
-        if self.sigmoid:
-            pred, gt = [torch.sigmoid(t) for t in (pred, gt)]
-        pred, gt = [torch.flatten(t) for t in (pred, gt)]
-        intersection = (pred*gt).float().sum()
-        union = (pred + gt).float().sum()
-        return 2.*intersection/union if union > 0 else None
+        pred = pred.sigmoid()
+
+        if self.binary:
+            pred = (pred >= self.threshold).float()
+
+        pred_pixels = torch.flatten(pred).float()
+        true_pixels = torch.flatten(gt).float()
+
+        if torch.equal(pred_pixels, true_pixels):
+            return 1.0
+
+        inter = (pred_pixels * true_pixels).sum()
+        union = (pred_pixels + true_pixels).sum()
+        dice = 2.0*inter/union
+
+        return dice.item()
 
 
 @dataclass
@@ -404,7 +415,7 @@ def compute_average_metrics(outputs: List[Any], suffix: Optional[str] = None) ->
     for record in outputs:
         for k, v in record.items():
             if v is not None:
-                acc[k].append(v.item())
+                acc[k].append(v.item() if hasattr(v, "item") else v)
     return {
         k if suffix is None else f"{suffix}{k}": np.mean(collected)
         for k, collected in acc.items()

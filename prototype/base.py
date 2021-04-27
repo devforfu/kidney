@@ -22,7 +22,8 @@ from kidney.experiments import (
     DiceCOESigmoid,
     ConfusionMatrixMetric,
     CombinedDiceBCELoss,
-    compute_average_metrics, DiceNonThreshold,
+    compute_average_metrics,
+    SorensenDice,
 )
 from prototype.config import (
     Config,
@@ -192,10 +193,11 @@ def create_metric(params: Dict[str, Any]):
     elif name == "balanced_accuracy":
         return DictMetric(ConfusionMatrixMetric("balanced accuracy"))
     elif name == "iou":
-        t = params.get("t", 0.5)
-        return DictMetric(IoU(threshold=t), name=f"iou_{t:2.2%}")
-    elif name == "dice_non_threshold":
-        return DictMetric(DiceNonThreshold(**params))
+        t = params.get("t")
+        name = name if t is None else f"iou_{t:2.2%}"
+        return DictMetric(IoU(threshold=t), name=name)
+    elif name == "sorensen_dice":
+        return DictMetric(SorensenDice(**params))
     raise ValueError(f"unknown metric name was requested: {name}")
 
 
