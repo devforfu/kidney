@@ -29,7 +29,8 @@ def main(config: PredictConfig) -> None:
     predictions = inference.predict_from_reader(
         reader=KaggleKidneyDatasetReader(config.dataset),
         sample_type=config.sample_type,
-        encoder=rle_numba_encode if config.encode_masks else None
+        encoder=rle_numba_encode if config.encode_masks else None,
+        keys_include=config.keys_include,
     )
     save_results(predictions, config.predictions_file, encoded=config.encode_masks)
 
