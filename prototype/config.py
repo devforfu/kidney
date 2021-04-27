@@ -56,8 +56,8 @@ class TrainingConfig(BaseModel):
 
 class ValidationFolds(BaseModel):
     n_folds: int
-    train: Union[List[int], List[List[int]]]
-    valid: Union[List[int], List[List[int]]]
+    train: Union[List[int], List[List[int]], List[str], List[List[str]]]
+    valid: Union[List[int], List[List[int]], List[str], List[List[str]]]
 
 
 class ValidationConfig(BaseSettings):
@@ -177,6 +177,7 @@ class Config(BaseModel):
     early_stopping: Optional[EarlyStoppingConfig] = None
     checkpoint: Optional[CheckpointConfig] = None
     lightning: Optional[Dict[str, Any]] = None
+    dataset: Optional[Dict[str, Any]] = None
 
 
 class SlidingWindowConfig(BaseModel):
@@ -200,6 +201,7 @@ class PredictConfig(BaseSettings):
     sample_type: SampleType = SampleType.All
     device: str = Field(default="cuda:0", env="DEVICE")
     performance_metric: str = "avg_val_dice"
+    keys_include: Optional[List[str]] = None
     encode_masks: bool = True
     debug: bool = False
 
