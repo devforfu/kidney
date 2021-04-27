@@ -27,6 +27,8 @@ class InferenceAlgorithm:
         sample_type: SampleType,
         sample_path_key: str = "tiff",
         encoder: Optional[Callable] = None,
+        keys_exclude: Optional[List[str]] = None,
+        keys_include: Optional[List[str]] = None,
     ) -> List[Dict]:
         """Runs predictions dataset.
 
@@ -40,6 +42,10 @@ class InferenceAlgorithm:
             Sample meta-information key with path to the sample.
         encoder
             If provided, a function applied to the generated prediction.
+        keys_include:
+            If provided, process only these keys.
+        keys_exclude:
+            If provided, exclude these keys from processing.
 
         Returns
         -------
@@ -47,9 +53,19 @@ class InferenceAlgorithm:
             The list of dictionaries with predictions and their IDs.
 
         """
+        assert not (keys_exclude and keys_include), "mutually exclusive params!"
+
         predictions = []
-        # keys = reader.get_keys(sample_type)
-        keys = ["aaa6a05cc"]
+        keys = reader.get_keys(sample_type)
+
+        if keys_include:
+            assert set(keys_include).issubset(keys)
+            keys = keys_include
+
+        if keys_exclude:
+            assert set(keys_exclude).issubset(keys)
+            keys = set(keys).difference(keys_exclude)
+
         for i, key in enumerate(keys):
             print(f"processing key: {key} [{i + 1}/{len(keys)}]")
             meta = reader.fetch_meta(key)
