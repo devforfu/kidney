@@ -21,7 +21,7 @@ class InMemorySlidingWindow(InferenceAlgorithm):
     debug: bool = False
 
     def __post_init__(self):
-        self.model = cast(pl.LightningModule, self.model.to(self.device))
+        self.model = cast(pl.LightningModule, self.model.to(self.device)).eval()
 
     def predict_from_file(self, filename: str) -> np.ndarray:
         size = self.config.window_size
