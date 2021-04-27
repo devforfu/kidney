@@ -4,6 +4,7 @@ from typing import Dict
 import segmentation_models_pytorch as smp
 from torch import nn
 
+from kidney.datasets.sampled import RandomTilesDataset
 from prototype.base import Prototype
 
 
@@ -25,3 +26,8 @@ class UppExperiment(SegmentationExperiment):
 
     def create_model(self) -> nn.Module:
         return smp.UnetPlusPlus(**self.config.model)
+
+    def on_train_epoch_end(self, outputs) -> None:
+        dl = self.train_dataloader()
+        if isinstance(dl.dataset, RandomTilesDataset):
+            dl.dataset.update_deformation()
