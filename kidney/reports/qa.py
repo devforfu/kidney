@@ -12,6 +12,7 @@ import torch
 from monai.metrics import DiceMetric
 
 from kidney.datasets.kaggle import KaggleKidneyDatasetReader
+from kidney.experiments import SorensenDice
 from kidney.inference.prediction import MajorityVotePrediction
 from kidney.reports import session, sidebar, read_image
 from kidney.reports.auth import with_password
@@ -34,7 +35,7 @@ def main():
     meta = reader.fetch_meta(sample_key)
     image, info = read_image(meta, thumb_size, overlay_mask=False)
     image_size = info["full_size"]
-    predictions = pick_model(paths.get_models())
+    predictions, identifier = pick_model(paths.get_models())
 
     predictor = MajorityVotePrediction(
         predictions=predictions,
@@ -48,7 +49,10 @@ def main():
 
     mask_pred = predictor(sample_key)
 
-    st.text(f"Dice metric: {dice_metric(mask_pred, meta['mask']):2.4f}")
+    encoded = meta["mask"]
+    if encoded is not None:
+        st.text(f"Dice metric: {dice_metric(mask_pred, encoded):2.4f}")
+        st.text(f"Sorensen dice: {sorensen_dice(mask_pred, encoded):2.4f}")
 
     masks = []
 
@@ -125,7 +129,7 @@ def pick_model(discovered_models: Dict[str, Any]):
         label="Model identifier",
         options=list(discovered_models.keys())
     )
-    return read_model(discovered_models, identifier)
+    return read_model(discovered_models, identifier), identifier
 
 
 @st.cache
@@ -163,6 +167,17 @@ def dice_metric(mask_pred: np.ndarray, mask_encoded: str) -> float:
         y=torch.tensor(mask_true).unsqueeze(0)
     )
     return dice_value.item()
+
+
+@st.cache
+def sorensen_dice(mask_pred: np.ndarray, mask_encoded: str) -> float:
+    dice = SorensenDice(sigmoid=False, binary=False)
+    mask_true = rle_decode(mask_encoded, mask_pred.shape)
+    dice_value = dice(
+        pred=torch.tensor(mask_pred).unsqueeze(0),
+        gt=torch.tensor(mask_true).unsqueeze(0),
+    )
+    return dice_value
 
 
 if __name__ == '__main__':
