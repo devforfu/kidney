@@ -24,19 +24,22 @@ class ZarrDataset(Dataset, ABC):
     def __init__(
         self,
         path: str,
+        subset: str = "samples",
         keys: Optional[List[str]] = None,
         tile_shape: Tuple[int, int] = (512, 512),
         padding: Tuple[int, int] = (0, 0),
         scale: int = 1,
         keys_mapping: Optional[Dict] = None,
     ):
-        samples = zarr.open(join(path, "samples"))
+        samples = zarr.open(join(path, subset))
         labels = zarr.open(join(path, "masks", "labels"))
         pdfs = zarr.open(join(path, "masks", "pdfs"))
         keys = keys or list(samples)
 
-        assert list(samples) == list(labels) == list(pdfs)
-        assert len(keys) == len(set(keys))
+        if subset == "samples":
+            assert list(samples) == list(labels) == list(pdfs)
+            assert len(keys) == len(set(keys))
+
         assert set(keys).issubset(samples)
 
         super().__init__()
@@ -257,9 +260,10 @@ class RandomTilesDataset(ZarrDataset):
 
 class TileDataset(ZarrDataset):
 
-    def __init__(self, transform: Optional[Callable] = None, **base_params):
+    def __init__(self, transform: Optional[Callable] = None, include_meta: bool = False, **base_params):
         super().__init__(**base_params)
         self.transform = transform
+        self.include_meta = include_meta
         self.deformation = DeformationField(self.tile_shape, self.scale)
         self._create_tiles()
 
@@ -311,6 +315,9 @@ class TileDataset(ZarrDataset):
         self.in_slices = in_slices
         self.total = total
 
+    def full_size(self, item: int):
+        return self.samples[self.keys[self.indices[item]]].shape
+
     def __len__(self):
         return self.total
 
@@ -318,14 +325,17 @@ class TileDataset(ZarrDataset):
         idx = self.indices[item]
 
         image = self.samples[self.keys[idx]]
-        mask = self.labels[self.keys[idx]]
+        mask = self.labels.get(self.keys[idx])
         center = self.centers[item]
 
         x = self.deformation(image, center)
-        y = self.deformation(mask, center)
+        if mask is not None:
+            y = self.deformation(mask, center)
+        else:
+            y = np.zeros(x.shape[:2], dtype=np.uint8)
 
         if self.transform is None:
-            return {"img": float32(x), "seg": float32(y)}
+            sample = {"img": float32(x), "seg": float32(y)}
         else:
             transformed = self.transform(image=x.astype(np.uint8), mask=y)
             transformed = {self.keys_mapping.get(k, k): v for k, v in transformed.items()}
@@ -334,7 +344,13 @@ class TileDataset(ZarrDataset):
                 image, mask = image.float(), mask.float()
             else:
                 image, mask = float32(image), float32(mask)
-            return {"img": image, "seg": mask}
+            sample = {"img": image, "seg": mask}
+
+        if self.include_meta:
+            sample["item"] = item
+            sample["idx"] = idx
+
+        return sample
 
 
 def show(
