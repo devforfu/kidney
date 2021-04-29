@@ -329,6 +329,7 @@ class DiceCOESigmoid:
 
 @dataclass
 class SorensenDice:
+    sigmoid: bool = True
     threshold: float = 0.5
     binary: bool = True
 
@@ -337,10 +338,11 @@ class SorensenDice:
         return "sorensen_dice"
 
     def __call__(self, pred: torch.Tensor, gt: torch.Tensor) -> Optional[torch.Tensor]:
-        pred = pred.sigmoid()
+        if self.sigmoid:
+            pred = torch.sigmoid(pred)
 
         if self.binary:
-            pred = (pred >= self.threshold).float()
+            pred = torch.as_tensor(pred >= self.threshold).float()
 
         pred_pixels = torch.flatten(pred).float()
         true_pixels = torch.flatten(gt).float()
