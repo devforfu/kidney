@@ -63,7 +63,7 @@ def main(config: Config):
     trainer.fit(
         model=UppExperiment(config),
         train_dataloader=loaders["train"],
-        val_dataloaders=loaders["valid"],
+        val_dataloaders=loaders.get("valid"),
     )
 
 
@@ -122,7 +122,9 @@ def create_data_loaders_tiled(
             num_workers=num_workers,
             **dataloader_options
         )),
-        ("valid", DataLoader(
+    ])
+    if valid:
+        loaders["valid"] = DataLoader(
             dataset=TileDataset(
                 path=path,
                 keys=valid,
@@ -134,8 +136,7 @@ def create_data_loaders_tiled(
             shuffle=False,
             num_workers=num_workers,
             **dataloader_options
-        ))
-    ])
+        )
     return loaders
 
 
