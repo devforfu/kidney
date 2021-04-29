@@ -43,7 +43,7 @@ class CheckpointsStorage:
         timestamps = sorted(
             [
                 (join(self.folder, t), self.timestamp_format.parse(t))
-                for t in os.listdir(self.folder)
+                for t in sorted(os.listdir(self.folder))
             ],
             key=itemgetter(1)
         )
