@@ -206,8 +206,12 @@ class PredictConfig(BaseSettings):
     debug: bool = False
 
     @property
+    def root_dir(self) -> str:
+        return os.path.join(self.checkpoints_root, self.experiment_id, "checkpoints")
+
+    @property
     def storage_dir(self) -> str:
-        return os.path.join(self.checkpoints_root, self.experiment_id, "checkpoints", self.run_id)
+        return os.path.join(self.root_dir, self.run_id)
 
     @property
     def predictions_file(self) -> str:
