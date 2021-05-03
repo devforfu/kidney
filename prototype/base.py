@@ -2,11 +2,6 @@ from typing import Dict, Any, Optional, Callable, List, Union
 
 import pytorch_lightning as pl
 import torch
-from madgrad import MADGRAD
-from monai.losses import DiceLoss
-from monai.metrics import DiceMetric
-from segmentation_models_pytorch.losses.jaccard import JaccardLoss
-from segmentation_models_pytorch.utils.metrics import IoU
 from torch import nn
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import (
@@ -16,24 +11,9 @@ from torch.optim.lr_scheduler import (
     ReduceLROnPlateau,
 )
 
-from kidney.experiments import (
-    DictKeyGetter,
-    DictMetric,
-    DiceCOESigmoid,
-    ConfusionMatrixMetric,
-    CombinedDiceBCELoss,
-    compute_average_metrics,
-    SorensenDice,
-)
-from prototype.config import (
-    Config,
-    TrainingConfig,
-    OptimizerConfig,
-)
-
 
 class Prototype(pl.LightningModule):
-    def __init__(self, params: Config):
+    def __init__(self, params):
         super().__init__()
         self.config = params
         self.hparams = params.dict()
@@ -100,21 +80,25 @@ class Prototype(pl.LightningModule):
         return {"test_loss": loss, **{f"test_{k}": v for k, v in step_metrics.items()}}
 
     def training_epoch_end(self, outputs: List[Any]) -> None:
+        from kidney.experiments import compute_average_metrics
+
+        avg_trn_metrics = compute_average_metrics(outputs, suffix="avg_trn_")
         if hasattr(self.logger, "experiment"):
-            self.logger.experiment.log(
-                compute_average_metrics(outputs, suffix="avg_trn_")
-            )
+            self.logger.experiment.log(avg_trn_metrics)
             self.logger.experiment.log({"current_epoch": self.current_epoch})
             if self.num_bad_epochs != -1:
                 self.logger.experiment.log({"num_bad_epochs": self.num_bad_epochs})
+        self.log_dict(avg_trn_metrics)
 
     def validation_epoch_end(self, outputs: List[Any]) -> None:
+        from kidney.experiments import compute_average_metrics
         avg_val_metrics = compute_average_metrics(outputs, suffix="avg_")
         if hasattr(self.logger, "experiment"):
             self.logger.experiment.log(avg_val_metrics)
         self.log_dict(avg_val_metrics)
 
     def test_epoch_end(self, outputs: List[Any]) -> None:
+        from kidney.experiments import compute_average_metrics
         avg_test_metrics = compute_average_metrics(outputs, suffix="avg_")
         self.log_dict(avg_test_metrics)
 
@@ -145,9 +129,11 @@ class Prototype(pl.LightningModule):
         return step_metrics
 
 
-def create_loss(config: TrainingConfig) -> Callable:
+def create_loss(config) -> Callable:
+    from kidney.experiments import CombinedDiceBCELoss
     name = config.loss_name.lower()
     if name == "dice_sigmoid":
+        from monai.losses import DiceLoss
         return DiceLoss(sigmoid=True)
     elif name == "dice_bce_weighted":
         return CombinedDiceBCELoss(**(config.loss_config or {}))
@@ -156,6 +142,7 @@ def create_loss(config: TrainingConfig) -> Callable:
     elif name == "bce_sigmoid":
         return nn.BCELoss()
     elif name == "bce_jaccard":
+        from segmentation_models_pytorch.losses.jaccard import JaccardLoss
         return JaccardLoss(mode="binary", from_logits=True)
     raise ValueError(f"unknown loss function: {name}")
 
@@ -169,6 +156,9 @@ def create_metrics(metrics: Optional[Dict[str, Any]] = None):
 
 
 def create_metric(params: Dict[str, Any]):
+    from monai.metrics import DiceMetric
+    from kidney.experiments import DictMetric
+    from kidney.experiments import ConfusionMatrixMetric
     name = params.pop("name", "").lower()
     if not name:
         raise ValueError("cannot parse metric without name:", params)
@@ -177,10 +167,12 @@ def create_metric(params: Dict[str, Any]):
             raise ValueError(
                 f"cannot initialize '{name}' metric without 'key' parameter"
             )
+        from kidney.experiments import DictKeyGetter
         return DictKeyGetter(params["key"])
     elif name == "dice":
         return DictMetric(DiceMetric(**params), "dice")
     elif name == "dice_coe_sigmoid":
+        from kidney.experiments import DiceCOESigmoid
         return DictMetric(DiceCOESigmoid(**params))
     elif name == "recall":
         return DictMetric(ConfusionMatrixMetric("recall"))
@@ -193,15 +185,17 @@ def create_metric(params: Dict[str, Any]):
     elif name == "balanced_accuracy":
         return DictMetric(ConfusionMatrixMetric("balanced accuracy"))
     elif name == "iou":
+        from segmentation_models_pytorch.utils.metrics import IoU
         t = params.get("t")
         name = name if t is None else f"iou_{t:2.2%}"
         return DictMetric(IoU(threshold=t), name=name)
     elif name == "sorensen_dice":
+        from kidney.experiments import SorensenDice
         return DictMetric(SorensenDice(**params))
     raise ValueError(f"unknown metric name was requested: {name}")
 
 
-def create_optimizer(optimizer_params: List, config: OptimizerConfig) -> Optimizer:
+def create_optimizer(optimizer_params: List, config) -> Optimizer:
     name = config.name.strip()
     options = config.options or {}
     if name == "adam":
@@ -211,6 +205,7 @@ def create_optimizer(optimizer_params: List, config: OptimizerConfig) -> Optimiz
     elif name == "sgd":
         opt = torch.optim.SGD(params=optimizer_params, **options)
     elif name == "madgrad":
+        from madgrad import MADGRAD
         opt = MADGRAD(params=optimizer_params, **options)
     else:
         raise ValueError(f"unknown optimizer: {name}")
