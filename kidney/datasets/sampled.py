@@ -34,6 +34,9 @@ class ZarrDataset(Dataset, ABC):
         samples = zarr.open(join(path, subset))
         labels = zarr.open(join(path, "masks", "labels"))
         pdfs = zarr.open(join(path, "masks", "pdfs"))
+        pdf_resize = zarr.open(join(path, "meta")).get("pdf_resize")
+        pdf_resize = 512 if pdf_resize is None else pdf_resize[()]
+
         keys = keys or list(samples)
 
         if subset == "samples":
@@ -46,6 +49,7 @@ class ZarrDataset(Dataset, ABC):
         self.samples = samples
         self.labels = labels
         self.pdfs = pdfs
+        self.pdf_resize = pdf_resize
         self.keys = keys
         self.tile_shape = tile_shape
         self.padding = padding
@@ -191,7 +195,7 @@ class RandomTilesDataset(ZarrDataset):
         mask = self.labels[key]
         pdf = self.pdfs[key]
 
-        center = transforms.random_center(pdf[:], mask.shape)
+        center = transforms.random_center(pdf[:], mask.shape, scale=self.pdf_resize)  # todo: check if works!
         x = self.deformation(image, center, self.padding)
         y = self.deformation(mask, center, self.padding, interpolation=cv.INTER_NEAREST)
 
@@ -260,12 +264,19 @@ class RandomTilesDataset(ZarrDataset):
 
 class TileDataset(ZarrDataset):
 
-    def __init__(self, transform: Optional[Callable] = None, include_meta: bool = False, **base_params):
+    def __init__(
+        self,
+        transform: Optional[Callable] = None,
+        include_meta: bool = False,
+        val_size: Optional[int] = None,
+        **base_params
+    ):
         super().__init__(**base_params)
         self.transform = transform
         self.include_meta = include_meta
         self.deformation = DeformationField(self.tile_shape, self.scale)
         self._create_tiles()
+        self._sample_tiles(val_size)
 
     def _create_tiles(self):
         output_shape = tuple(int(t - p) for t, p in zip(self.tile_shape, self.padding))
@@ -315,6 +326,18 @@ class TileDataset(ZarrDataset):
         self.in_slices = in_slices
         self.total = total
 
+    def _sample_tiles(self, size: Optional[int] = None):
+        if size is None:
+            return
+        assert size <= self.total
+        new = np.random.choice(np.arange(self.total), size=size, replace=False)
+        self.centers = pick(self.centers, new)
+        self.indices = pick(self.indices, new)
+        self.shapes = pick(self.shapes, new)
+        self.out_slices = pick(self.out_slices, new)
+        self.in_slices = pick(self.in_slices, new)
+        self.total = size
+
     def full_size(self, item: int):
         return self.samples[self.keys[self.indices[item]]].shape
 
@@ -351,6 +374,11 @@ class TileDataset(ZarrDataset):
             sample["idx"] = idx
 
         return sample
+
+
+def pick(iterable, indices):
+    include = set(indices)
+    return [x for i, x in enumerate(iterable) if i in include]
 
 
 def show(
