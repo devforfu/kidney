@@ -152,6 +152,29 @@ class Elastic(AugmentationConfig):
     alpha_affine: int = 50
 
 
+
+class HSV(AugmentationConfig):
+    hue: int = 10
+    saturation: int = 15
+    value: int = 10
+
+
+class HistogramEqualization(AugmentationConfig):
+    clip: Tuple[float, float] = (1, 2)
+    tile_grid: Tuple[int, int] = (8, 8)
+
+
+class BrightnessContrast(AugmentationConfig):
+    brightness: float = 0.2
+    contrast: float = 0.2
+
+
+class ColorTransform(AugmentationConfig):
+    hsv: Optional[HSV] = HSV()
+    hist: Optional[HistogramEqualization] = HistogramEqualization()
+    brightness_contrast: Optional[BrightnessContrast] = BrightnessContrast()
+
+
 class TransformersConfig(BaseModel):
     image_size: int
     resize: bool = True
@@ -162,6 +185,7 @@ class TransformersConfig(BaseModel):
     flip: Optional[Flip] = Flip()
     elastic: Optional[Elastic] = Elastic()
     ssr: Optional[ShiftScaleRotate] = ShiftScaleRotate()
+    color: Optional[ColorTransform] = ColorTransform()
 
 
 class Config(BaseModel):
