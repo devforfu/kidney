@@ -1,4 +1,6 @@
+import os
 from collections import OrderedDict
+from pathlib import Path
 from typing import List, Dict, Tuple, Any, Optional
 
 from torch.utils.data.dataloader import DataLoader
@@ -17,6 +19,14 @@ from prototype.transformers import create_transformers
 @configure
 def main(config: Config):
     super_seed(config.training.seed)
+
+    filename = os.environ.get("CONFIG_FILE", "configuration.yaml")
+
+    tags = config.experiment.tags.copy()
+    tags.append(f"run_id:{config.experiment.run_identifier}")
+    tags.append(f"fold:{config.validation.fold_no}")
+    tags.append(f"config:{Path(filename).stem}")
+    config.experiment.tags = tags
 
     train, valid = config.validation.get_selected_fold()
 
@@ -50,7 +60,7 @@ def main(config: Config):
             num_workers=config.training.num_workers,
             transformers=transformers,
             multiprocessing_context=config.training.multiprocessing_context,
-            train_dataset_options=config.dataset["train"],
+            dataset_options=config.dataset,
         )
 
     else:
@@ -103,19 +113,30 @@ def create_data_loaders_tiled(
     batch_size: int,
     num_workers: int,
     transformers: Transformers,
-    train_dataset_options: Optional[Dict[str, Any]] = None,
-    valid_dataset_options: Optional[Dict[str, Any]] = None,
+    dataset_options: Optional[Dict[str, Any]] = None,
     **dataloader_options,
 ) -> OrderedDict:
-    tile_shape = image_size, image_size
+
+    train_data_opts, valid_data_opts = {}, {}
+    if dataset_options is not None:
+        train_data_opts.update(dataset_options.get("train", {}))
+        valid_data_opts.update(dataset_options.get("valid", {}))
+
+    tile_shape = tuple(dataset_options.get("tile_shape", (image_size, image_size)))
+
+    if "tile_shape" not in train_data_opts:
+        train_data_opts["tile_shape"] = tile_shape
+
+    if "tile_shape" not in valid_data_opts:
+        valid_data_opts["tile_shape"] = tile_shape
+
     loaders = OrderedDict([
         ("train", DataLoader(
             dataset=RandomTilesDataset(
                 path=path,
                 keys=train,
                 transform=transformers.train,
-                tile_shape=tile_shape,
-                **(train_dataset_options or {}),
+                **train_data_opts,
             ),
             batch_size=batch_size,
             shuffle=True,
@@ -129,8 +150,7 @@ def create_data_loaders_tiled(
                 path=path,
                 keys=valid,
                 transform=transformers.valid,
-                tile_shape=tile_shape,
-                **(valid_dataset_options or {}),
+                **valid_data_opts,
             ),
             batch_size=batch_size,
             shuffle=False,
