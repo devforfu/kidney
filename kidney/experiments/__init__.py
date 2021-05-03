@@ -9,7 +9,11 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-from monai.metrics import DiceMetric, compute_confusion_metric
+from monai.metrics import DiceMetric
+try:
+    from monai.metrics import compute_confusion_metric
+except ImportError:
+    from monai.metrics import compute_confusion_matrix_metric as compute_confusion_metric
 from pytorch_lightning.utilities import AttributeDict
 from segmentation_models_pytorch.losses import BINARY_MODE
 from segmentation_models_pytorch.losses.dice import DiceLoss
