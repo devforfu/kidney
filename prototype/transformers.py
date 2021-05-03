@@ -94,6 +94,35 @@ def create_transformers(
                 )
             )
 
+        if config.color is not None:
+            color_steps = []
+            if config.color.hsv is not None:
+                color_steps.append(
+                    A.HueSaturationValue(
+                        hue_shift_limit=config.color.hsv.hue,
+                        sat_shift_limit=config.color.hsv.saturation,
+                        val_shift_limit=config.color.hsv.value,
+                        p=config.color.hsv.prob
+                    )
+                )
+            if config.color.hist is not None:
+                color_steps.append(
+                    A.CLAHE(
+                        clip_limit=config.color.hist.clip,
+                        tile_grid_size=config.color.hist.tile_grid,
+                        p=config.color.hist.prob
+                    )
+                )
+            if config.color.brightness_contrast is not None:
+                color_steps.append(
+                    A.RandomBrightnessContrast(
+                        brightness_limit=config.color.brightness_contrast.brightness,
+                        contrast_limit=config.color.brightness_contrast.contrast,
+                        p=config.color.brightness_contrast.prob
+                    )
+                )
+            train_steps.append(A.OneOf(color_steps, p=config.color.prob))
+
     final_step = (
         [A.NoOp()]
         if debug
