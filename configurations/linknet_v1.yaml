@@ -1,24 +1,24 @@
-# Random tiles dataset
+# Linknet architecture with small encoder
 experiment:
-  name: "unet"
+  name: "linknet"
   dataset: "/mnt/fast/data/kidney/zarr/scale_1"
   output_dir: "~/experiments"
   file_format: "sampling"
 lightning:
-  max_epochs: 1
+  max_epochs: 30
   precision: 16
-  gpus: [0]
+  gpus: [1]
   num_sanity_val_steps: 0
 dataset:
   tile_shape: [1024, 1024]
   train:
-    samples_per_item: 2
+    samples_per_item: 300
   valid:
-    val_size: 50
+    val_size: 500
 training:
-  loss_name: "bce_logits"
-  batch_size: 8
-  num_workers: -1
+  loss_name: "lovasz_hinge"
+  batch_size: 110
+  num_workers: 12
 validation: {}
 optimizer:
   name: "madgrad"
@@ -26,17 +26,18 @@ scheduler:
   name: "one_cycle"
   interval: "step"
   options:
-    max_lr: 0.001
+    max_lr: 0.0005
 early_stopping:
   enabled: false
 checkpoint:
-  enabled: false
-model: {encoder_name: "efficientnet-b4", encoder_weights: "imagenet"}
+  monitor: "avg_val_sorensen_dice"
+  mode: "max"
+model: {encoder_name: "efficientnet-b0", encoder_weights: "imagenet"}
 transformers:
   image_size: 256
   resize: true
   normalize_only: true
-use_wandb_logging: false
+use_wandb_logging: true
 metrics:
   - {name: "sorensen_dice"}
   - {name: "recall"}

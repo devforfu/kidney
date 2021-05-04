@@ -5,20 +5,20 @@ experiment:
   output_dir: "~/experiments"
   file_format: "sampling"
 lightning:
-  max_epochs: 1
+  max_epochs: 50
   precision: 16
   gpus: [0]
   num_sanity_val_steps: 0
 dataset:
   tile_shape: [1024, 1024]
   train:
-    samples_per_item: 2
+    samples_per_item: 500
   valid:
-    val_size: 50
+    val_size: 300
 training:
   loss_name: "bce_logits"
-  batch_size: 8
-  num_workers: -1
+  batch_size: 24
+  num_workers: 12
 validation: {}
 optimizer:
   name: "madgrad"
@@ -26,17 +26,24 @@ scheduler:
   name: "one_cycle"
   interval: "step"
   options:
-    max_lr: 0.001
+    max_lr: 0.0005
 early_stopping:
   enabled: false
 checkpoint:
-  enabled: false
+  monitor: "avg_trn_sorensen_dice"
+  mode: "max"
 model: {encoder_name: "efficientnet-b4", encoder_weights: "imagenet"}
 transformers:
   image_size: 256
   resize: true
-  normalize_only: true
-use_wandb_logging: false
+  bcg: null
+  blur: null
+  noise: null
+  flip: null
+  elastic: null
+  ssr: null
+  color: { prob: 0.2 }
+use_wandb_logging: true
 metrics:
   - {name: "sorensen_dice"}
   - {name: "recall"}

@@ -5,17 +5,20 @@ experiment:
   output_dir: "~/experiments"
   file_format: "sampling"
 lightning:
-  max_epochs: 15
+  max_epochs: 10
   precision: 16
   gpus: [1]
   num_sanity_val_steps: 0
 dataset:
+  tile_shape: [1024, 1024]
   train:
     samples_per_item: 200
+  valid:
+    val_size: 300
 training:
   loss_name: "bce_logits"
   batch_size: 40
-  num_workers: 1
+  num_workers: 12
 validation: {}
 optimizer:
   name: "madgrad"
@@ -27,7 +30,7 @@ scheduler:
 early_stopping:
   enabled: false
 checkpoint:
-  monitor: "avg_trn_sorensen_dice"
+  monitor: "avg_val_sorensen_dice"
   mode: "max"
 model: {encoder_name: "efficientnet-b4", encoder_weights: "imagenet"}
 transformers:
