@@ -7,7 +7,7 @@ experiment:
 lightning:
   max_epochs: 15
   precision: 16
-  gpus: [1]
+  gpus: [0]
   num_sanity_val_steps: 0
 dataset:
   tile_shape: [1024, 1024]
@@ -16,8 +16,8 @@ dataset:
   valid:
     val_size: 500
 training:
-  loss_name: "lovasz_hinge"
-  batch_size: 110
+  loss_name: "bce_logits"
+  batch_size: 80
   num_workers: 12
 validation: {}
 optimizer:
@@ -26,7 +26,7 @@ scheduler:
   name: "one_cycle"
   interval: "step"
   options:
-    max_lr: 0.00005
+    max_lr: 0.0001
 early_stopping:
   enabled: false
 checkpoint:

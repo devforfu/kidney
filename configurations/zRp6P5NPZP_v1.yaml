@@ -1,23 +1,21 @@
-# Linknet architecture with small encoder
 experiment:
-  name: "linknet"
-  dataset: "/mnt/fast/data/kidney/zarr/scale_1"
+  name: "unet"
+  run_identifier: "zRp6P5NPZP_v1"
+  dataset: "/mnt/fast/data/kidney/zarr/scale_2"
   output_dir: "~/experiments"
   file_format: "sampling"
 lightning:
-  max_epochs: 15
+  max_epochs: 30
   precision: 16
   gpus: [1]
   num_sanity_val_steps: 0
 dataset:
-  tile_shape: [1024, 1024]
+  tile_shape: [512, 512]
   train:
     samples_per_item: 100
-  valid:
-    val_size: 500
 training:
-  loss_name: "lovasz_hinge"
-  batch_size: 110
+  loss_name: "bce_logits"
+  batch_size: 10
   num_workers: 12
 validation: {}
 optimizer:
@@ -26,16 +24,18 @@ scheduler:
   name: "one_cycle"
   interval: "step"
   options:
-    max_lr: 0.00005
+    max_lr: 0.001
+    pct_start: 0.12
+    final_div_factor: 1000
 early_stopping:
   enabled: false
 checkpoint:
-  monitor: "avg_val_sorensen_dice"
+  monitor: "avg_trn_sorensen_dice"
   mode: "max"
-model: {encoder_name: "efficientnet-b0", encoder_weights: "imagenet"}
+model: {encoder_name: "efficientnet-b4", encoder_weights: "imagenet"}
 transformers:
-  image_size: 256
-  resize: true
+  image_size: 512
+  resize: false
   normalize_only: true
 use_wandb_logging: true
 metrics:
