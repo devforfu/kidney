@@ -1,0 +1,55 @@
+experiment:
+  name: "unet"
+  run_identifier: "zRp6P5NPZP_v4"
+  #run_identifier: "test"
+  dataset: "/mnt/fast/data/kidney/zarr/scale_1"
+  output_dir: "~/experiments"
+  file_format: "sampling"
+lightning:
+  max_epochs: 50
+  precision: 16
+  gpus: [0]
+  num_sanity_val_steps: 0
+dataset:
+  tile_shape: [512, 512]
+  train:
+    samples_per_item: 100
+  valid:
+    val_size: 300
+training:
+  loss_name: "bce_logits"
+  batch_size: 10
+  num_workers: 12
+validation: {}
+optimizer:
+  name: "madgrad"
+  options: {lr: 0.0005}
+scheduler:
+  name: "reduce_lr"
+  interval: "epoch"
+  monitor: "avg_val_sorensen_dice"
+  options:
+    mode: "max"
+    patience: 5
+    factor: 0.1
+early_stopping:
+  monitor: "avg_val_loss"
+  patience: 10
+  mode: "min"
+  restore_best_weights: true
+  enabled: true
+checkpoint:
+  monitor: "avg_val_sorensen_dice"
+  mode: "max"
+model: {encoder_name: "efficientnet-b2", encoder_weights: "imagenet"}
+transformers:
+  image_size: 512
+  resize: false
+  normalize_only: true
+use_wandb_logging: true
+metrics:
+  - {name: "sorensen_dice"}
+  - {name: "recall"}
+  - {name: "precision"}
+  - {name: "balanced_accuracy"}
+  - {name: "f1_score"}
