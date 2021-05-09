@@ -1,0 +1,61 @@
+experiment:
+  name: deeplab_v3_plus
+  run_identifier: mdaso2f1hc_v6
+  dataset: /mnt/fast/data/kidney/zarr/scale_1
+  output_dir: ~/experiments
+  file_format: sampling
+lightning:
+  max_epochs: 40
+  precision: 16
+  gpus: [1]
+  num_sanity_val_steps: 0
+dataset:
+  tile_shape: [1024, 1024]
+  train:
+    samples_per_item: 300
+  valid:
+    val_size: 300
+training:
+  loss_name: lovasz_symmetric
+  batch_size: 70
+  num_workers: 12
+validation: {}
+optimizer:
+  name: r_adam
+  weight_decay: 0.00001
+scheduler:
+  name: one_cycle
+  interval: step
+  options:
+    max_lr: 0.0003
+    pct_start: 0.35
+    div_factor: 10
+    final_div_factor: 100
+    three_phase: true
+early_stopping:
+  enabled: false
+checkpoint:
+  monitor: avg_val_sorensen_dice
+  mode: max
+model: {encoder_name: "efficientnet-b2", encoder_weights: "imagenet"}
+deformation:
+  flip: false
+  zoom_sigma: 0.22
+transformers:
+  image_size: 256
+  resize: true
+  normalize_only: false
+  bcg: null
+  blur: { prob: 0.3 }
+  noise: { prob: 0.2 }
+  flip: { prob: 0.5 }
+  elastic: null
+  ssr: null
+  color: { prob: 0.3 }
+use_wandb_logging: true
+metrics:
+  - {name: "sorensen_dice"}
+  - {name: "recall"}
+  - {name: "precision"}
+  - {name: "balanced_accuracy"}
+  - {name: "f1_score"}
