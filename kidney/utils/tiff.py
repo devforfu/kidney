@@ -6,6 +6,7 @@ import gdal
 import numpy as np
 import rasterio
 from rasterio.windows import Window
+from tifffile import tifffile
 
 
 @contextmanager
@@ -51,6 +52,13 @@ def read_tiff(path: str) -> np.ndarray:
         image[i] = channel
 
     return image.transpose((1, 2, 0))
+
+
+def read_tiff_all(path: str) -> np.ndarray:
+    img = tifffile.imread(path).squeeze()
+    if img.shape[0] == 3:
+        img = img.transpose((1, 2, 0))
+    return img
 
 
 def read_tiff_crop(path: str, box: Tuple[int, int, int, int]) -> np.ndarray:

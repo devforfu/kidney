@@ -1,4 +1,5 @@
 import os
+import sys
 from collections import OrderedDict
 from pathlib import Path
 from typing import List, Dict, Tuple, Any, Optional
@@ -7,18 +8,22 @@ from torch.utils.data.dataloader import DataLoader
 from zeus.core.random import super_seed
 
 from kidney.datasets.offline import OfflineCroppedDatasetV2
-from kidney.datasets.sampled import RandomTilesDataset, TileDataset
+from kidney.datasets.sampled import RandomTilesDataset, TileDataset, DeformationConfig
 from kidney.datasets.transformers import Transformers, IntensityNormalization
 from kidney.datasets.utils import read_segmentation_info
 from kidney.experiments import save_experiment_info
 from prototype.config import Config, configure, create_trainer, ValidationConfig
-from prototype.models import UppExperiment
+from prototype.models import UppExperiment, LinkNetExperiment, UnetExperiment, DeepLapV3Plus, PseudoLabeledExperiment
 from prototype.transformers import create_transformers
 
 
 @configure
 def main(config: Config):
     super_seed(config.training.seed)
+
+    if sys.argv[1].startswith("FOLD="):
+        fold_no = int(sys.argv[1].replace("FOLD=", ""))
+        config.validation.fold_no = fold_no
 
     filename = os.environ.get("CONFIG_FILE", "configuration.yaml")
 
@@ -61,6 +66,7 @@ def main(config: Config):
             transformers=transformers,
             multiprocessing_context=config.training.multiprocessing_context,
             dataset_options=config.dataset,
+            deformation_config=config.deformation,
         )
 
     else:
@@ -71,7 +77,7 @@ def main(config: Config):
     save_experiment_info(trainer, {"params": config, "transformers": transformers})
 
     trainer.fit(
-        model=UppExperiment(config),
+        model=create_model(config),
         train_dataloader=loaders["train"],
         val_dataloaders=loaders.get("valid"),
     )
@@ -113,6 +119,7 @@ def create_data_loaders_tiled(
     batch_size: int,
     num_workers: int,
     transformers: Transformers,
+    deformation_config: Optional[DeformationConfig] = None,
     dataset_options: Optional[Dict[str, Any]] = None,
     **dataloader_options,
 ) -> OrderedDict:
@@ -129,6 +136,9 @@ def create_data_loaders_tiled(
 
     if "tile_shape" not in valid_data_opts:
         valid_data_opts["tile_shape"] = tile_shape
+
+    if deformation_config is not None:
+        train_data_opts["deformation_config"] = deformation_config
 
     loaders = OrderedDict([
         ("train", DataLoader(
@@ -158,6 +168,21 @@ def create_data_loaders_tiled(
             **dataloader_options
         )
     return loaders
+
+
+def create_model(config: Config):
+    name = config.experiment.name
+    if name == "unet":
+        return UppExperiment(config)
+    if name == "unet_vnl":
+        return UnetExperiment(config)
+    elif name == "linknet":
+        return LinkNetExperiment(config)
+    elif name == "deeplab_v3_plus":
+        return DeepLapV3Plus(config)
+    elif name.startswith("pseudo"):
+        return PseudoLabeledExperiment(config)
+    raise ValueError(f"unknown experiment name: {name}")
 
 
 if __name__ == "__main__":

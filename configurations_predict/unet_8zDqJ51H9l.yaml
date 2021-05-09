@@ -1,7 +1,8 @@
-experiment_id: unet_P8IDI0pLLL
+experiment_id: unet_8zDqJ51H9l
 factory_class: prototype.models.UppExperiment
 sliding_window:
   window_size: 512
+  overlap: 32
   max_batch_size: 24
   check_for_outliers: false
 dataset: /mnt/fast/data/kidney/raw

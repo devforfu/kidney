@@ -19,7 +19,7 @@ def sidebar(reader: DatasetReader):
     ]
     keys = reader.get_keys(sample_type)
     selected_key = st.sidebar.selectbox("Image key", keys)
-    size = st.sidebar.radio("Thumbnail size", options=[512, 1024, 2048, 4096])
+    size = st.sidebar.radio("Thumbnail size", options=[512, 1024, 2048, 4096, 8192])
     return selected_key, size
 
 

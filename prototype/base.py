@@ -3,13 +3,18 @@ from typing import Dict, Any, Optional, Callable, List, Union
 import pytorch_lightning as pl
 import torch
 from torch import nn
+from torch.nn.functional import binary_cross_entropy_with_logits
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import (
     ExponentialLR,
     CosineAnnealingLR,
-    OneCycleLR,
     ReduceLROnPlateau,
 )
+
+from kidney.losses.focal import BinaryFocalLoss
+from kidney.losses.lovasz import SymmetricBinaryLovaszLoss
+from kidney.schedulers.one_cycle import OneCycleLR
+from prototype.losses import lovasz_hinge
 
 
 class Prototype(pl.LightningModule):
@@ -144,6 +149,14 @@ def create_loss(config) -> Callable:
     elif name == "bce_jaccard":
         from segmentation_models_pytorch.losses.jaccard import JaccardLoss
         return JaccardLoss(mode="binary", from_logits=True)
+    elif name == "lovasz_hinge":
+        return lovasz_hinge
+    elif name == "lovasz_symmetric":
+        return SymmetricBinaryLovaszLoss()
+    elif name == "binary_focal":
+        return BinaryFocalLoss(**(config.loss_config or {}))
+    elif name == "bce_logits_weighted":
+        return binary_cross_entropy_with_logits
     raise ValueError(f"unknown loss function: {name}")
 
 
@@ -207,6 +220,9 @@ def create_optimizer(optimizer_params: List, config) -> Optimizer:
     elif name == "madgrad":
         from madgrad import MADGRAD
         opt = MADGRAD(params=optimizer_params, **options)
+    elif name == "r_adam":
+        from torch_optimizer import RAdam
+        opt = RAdam(params=optimizer_params, **options)
     else:
         raise ValueError(f"unknown optimizer: {name}")
     return opt

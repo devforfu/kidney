@@ -16,6 +16,9 @@ from prototype.inference import InMemorySlidingWindow
 def main(config: PredictConfig) -> None:
     storage = CheckpointsStorage(config.storage_dir)
     checkpoint = storage.fetch_best_file_in_dir(config.performance_metric)
+    # storage = CheckpointsStorage(config.root_dir)
+    # checkpoints = storage.fetch_available_checkpoints(config.performance_metric, best_checkpoint_per_date=False)
+    # checkpoint = checkpoints[config.run_id][4]
     factory = get_factory(config.factory_class)
     experiment, meta = load_experiment(factory, checkpoint.path, checkpoint.meta)
     config.sliding_window.transform_input = meta["transformers"].test_preprocessing

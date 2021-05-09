@@ -15,6 +15,7 @@ from zeus.utils import TimestampFormat
 
 from kidney.cli.lightning import get_trainer_specific_args
 from kidney.datasets.kaggle import SampleType
+from kidney.datasets.sampled import DeformationConfig
 from kidney.parameters import PROJECT_NAME
 
 
@@ -195,6 +196,7 @@ class Config(BaseModel):
     optimizer: OptimizerConfig
     transformers: TransformersConfig
     use_wandb_logging: bool = True
+    deformation: Optional[DeformationConfig] = None
     model: Optional[Dict[str, Any]] = None
     metrics: Optional[List[Dict[str, Any]]] = None
     scheduler: Optional[SchedulerConfig] = None

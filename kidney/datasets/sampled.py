@@ -5,7 +5,6 @@ from typing import Optional, Callable, Tuple, List, Dict
 import cv2 as cv
 import numpy as np
 import torch
-import zarr
 from pydantic import BaseModel
 from scipy.interpolate import Rbf
 from torch.utils.data.dataset import Dataset
@@ -14,6 +13,7 @@ from zeus.plotting.utils import axes
 from deepflash import transforms
 from kidney.datasets.offline import float32
 from kidney.log import get_logger
+from prototype.weights import SAMPLE_WEIGHTS
 
 logger = get_logger(__name__)
 
@@ -31,6 +31,7 @@ class ZarrDataset(Dataset, ABC):
         scale: int = 1,
         keys_mapping: Optional[Dict] = None,
     ):
+        import zarr
         samples = zarr.open(join(path, subset))
         labels = zarr.open(join(path, "masks", "labels"))
         pdfs = zarr.open(join(path, "masks", "pdfs"))
@@ -169,6 +170,7 @@ class RandomTilesDataset(ZarrDataset):
         samples_per_item: Optional[int] = None,
         transform: Optional[Callable] = None,
         deformation_config: DeformationConfig = DeformationConfig(),
+        use_weights: bool = True,
         **base_params
     ):
         super().__init__(**base_params)
@@ -184,6 +186,7 @@ class RandomTilesDataset(ZarrDataset):
         self.deformation: DeformationField = None
         self.gamma: Callable = None
         self.update_deformation()
+        self.use_weights = use_weights and any(k for k in self.keys if k in SAMPLE_WEIGHTS)
 
     def __len__(self) -> int:
         return len(self.keys) * self.samples_per_item
@@ -210,7 +213,12 @@ class RandomTilesDataset(ZarrDataset):
             else:
                 x, y = float32(x), float32(y)
 
-        return {"img": x, "seg": y}
+        sample = {"img": x, "seg": y}
+
+        if self.use_weights:
+            sample["weight"] = SAMPLE_WEIGHTS.get(key, 1.0)
+
+        return sample
 
         # if self.transform is None:
         #     return {"img": float32(image), "seg": float32(mask)}
